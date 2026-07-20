@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useBarcodeResult, WBOSScanner } from "@/features/scanner";
 import * as Haptics from "expo-haptics";
 
@@ -9,8 +9,16 @@ export default function ScannerScreen() {
   const [barcode, setBarcode] = useState<string | null>(null);
   const [torch, setTorch] = useState(false);
   const lastBarcode = useRef<string | null>(null);
+  const torchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: resolved, isLoading: resolving } = useBarcodeResult(barcode);
+
+  useFocusEffect(
+    useCallback(() => {
+      lastBarcode.current = null;
+      setBarcode(null);
+    }, []),
+  );
 
   const handleBarcodeScanned = useCallback((scanned: string) => {
     if (!scanned) return;
@@ -38,13 +46,17 @@ export default function ScannerScreen() {
       onBarcodeScanned={handleBarcodeScanned}
       onClose={handleClose}
       torch={torch}
-      onToggleTorch={() => setTorch((p) => !p)}
+      onToggleTorch={() => {
+        if (torchTimeout.current) return;
+        torchTimeout.current = setTimeout(() => { torchTimeout.current = null; }, 300);
+        setTorch((p) => !p);
+      }}
     >
       {barcode ? (
         <View style={styles.resultContainer}>
           {resolving ? (
             <Text style={styles.statusText}>Resolving barcode...</Text>
-          ) : resolvedResult ? (
+          ) : resolvedResult && resolvedResult.type !== "unknown" ? (
             <View style={styles.resolvedBox}>
               <Text style={styles.foundLabel}>
                 Found — {resolvedResult.type.replace(/_/g, " ")}
@@ -58,6 +70,14 @@ export default function ScannerScreen() {
               <Text style={styles.errorBarcode}>{barcode}</Text>
             </View>
           )}
+
+          <TouchableOpacity
+            onPress={() => router.push(`/(app)/stock/lookup?barcode=${encodeURIComponent(barcode)}`)}
+            style={styles.stockButton}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.stockButtonText}>Look Up Stock</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleScanAgain}
@@ -133,6 +153,24 @@ const styles = {
     fontSize: 14,
     marginTop: 4,
     fontFamily: "monospace",
+  },
+  stockButton: {
+    backgroundColor: "rgba(59,130,246,0.3)",
+    borderWidth: 1,
+    borderColor: "rgba(59,130,246,0.5)",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minHeight: 44,
+    justifyContent: "center" as const,
+    marginBottom: 8,
+    alignSelf: "stretch" as const,
+  },
+  stockButtonText: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontWeight: "600" as const,
+    textAlign: "center" as const,
   },
   scanAgainButton: {
     backgroundColor: "rgba(255,255,255,0.2)",

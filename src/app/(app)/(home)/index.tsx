@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Text, ScrollView, RefreshControl } from "react-native";
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useAuthStore } from "@/infrastructure/auth/store";
 import { useNetwork } from "@/infrastructure/network/use-network";
 import { useTodayTasks, useUpcomingTasks, TaskCard } from "@/features/tasks";
-import { GreetingHeader, QuickActionButton } from "@/features/dashboard";
+import { GreetingHeader, useTodayWork } from "@/features/dashboard";
 import { SkeletonList, EmptyState, Separator } from "@/design-system";
 import type { TaskSummary } from "@/api/tasks/types";
 
@@ -35,47 +36,16 @@ function groupByBusinessDate(tasks: TaskSummary[]): { label: string; tasks: Task
     });
 }
 
-function UpcomingTaskCard({ task }: { task: TaskSummary }) {
-  return (
-    <View className="bg-card border border-border/50 rounded-xl overflow-hidden opacity-80">
-      <View className="p-4">
-        <View className="flex-row items-start">
-          <View className="w-10 h-10 rounded-xl items-center justify-center mr-3 bg-muted">
-            <Text className="text-xl opacity-60">📦</Text>
-          </View>
-          <View className="flex-1 min-w-0">
-            <Text className="text-base font-semibold text-muted-foreground" numberOfLines={1}>
-              {task.title}
-            </Text>
-            {task.subtitle ? (
-              <Text className="text-sm text-muted-foreground/60 mt-0.5" numberOfLines={1}>
-                {task.subtitle}
-              </Text>
-            ) : null}
-            <View className="flex-row items-center mt-2 gap-2">
-              <View className="px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30">
-                <Text className="text-[10px] font-semibold uppercase tracking-wider text-purple-500">
-                  Scheduled
-                </Text>
-              </View>
-              <Text className="text-xs text-muted-foreground/60">
-                📍 {task.warehouseName}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 export default function HomeScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { isConnected } = useNetwork();
-  const { data: tasks, isLoading, isRefetching, refetch } = useTodayTasks();
-  const { data: upcomingTasks, isLoading: upcomingLoading, refetch: refetchUpcoming } = useUpcomingTasks();
+  const insets = useSafeAreaInsets();
+  const { data: tasks, isLoading, isRefetching, refetch, error: tasksError } = useTodayTasks();
+  const { data: upcomingTasks, isLoading: upcomingLoading, refetch: refetchUpcoming, error: upcomingError } = useUpcomingTasks();
+  const { data: todayWork, error: workError } = useTodayWork();
   const [refreshing, setRefreshing] = useState(false);
+  const [showUpcoming, setShowUpcoming] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -85,6 +55,15 @@ export default function HomeScreen() {
   );
 
   const upcomingGroups = useMemo(() => groupByBusinessDate(upcomingTasks ?? []), [upcomingTasks]);
+  const firstUpcomingTask = useMemo(() => {
+    const firstGroup = upcomingGroups[0];
+    return firstGroup?.tasks[0] ?? null;
+  }, [upcomingGroups]);
+
+  const sortedTasks = useMemo(() => {
+    if (!tasks) return [];
+    return [...tasks].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [tasks]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -104,6 +83,7 @@ export default function HomeScreen() {
   return (
     <ScrollView
       className="flex-1 bg-background"
+      contentContainerStyle={{ paddingTop: insets.top }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3B82F6" />
       }
@@ -115,14 +95,42 @@ export default function HomeScreen() {
           </Text>
         </View>
       ) : null}
+      {tasksError || upcomingError || workError ? (
+        <View className="bg-red-500/10 border border-red-500/30 rounded-lg p-2 mx-4 mt-2">
+          <Text className="text-red-500 text-sm text-center">
+            Failed to load some data. Pull down to retry.
+          </Text>
+        </View>
+      ) : null}
 
-      <View className="px-4 pt-4 pb-2">
+      <View className="px-4 pb-2" style={{ paddingTop: 8 }}>
         <GreetingHeader
           userName={user?.name ?? "Worker"}
           userRole={user?.role}
           onSettingsPress={() => router.push("/(app)/settings")}
         />
       </View>
+
+      {/* Summary strip */}
+      {todayWork ? (
+        <View className="flex-row px-4 mb-4 gap-2">
+          {todayWork.pickOrderCount > 0 ? (
+            <View className="flex-row items-center bg-blue-500/10 border border-blue-500/30 rounded-full px-3 py-1.5">
+              <Text className="text-xs font-bold text-blue-500">Picks: {todayWork.pickOrderCount}</Text>
+            </View>
+          ) : null}
+          {todayWork.deliveryCount > 0 ? (
+            <View className="flex-row items-center bg-green-500/10 border border-green-500/30 rounded-full px-3 py-1.5">
+              <Text className="text-xs font-bold text-green-500">Deliveries: {todayWork.deliveryCount}</Text>
+            </View>
+          ) : null}
+          {todayWork.cycleCountCount > 0 ? (
+            <View className="flex-row items-center bg-yellow-500/10 border border-yellow-500/30 rounded-full px-3 py-1.5">
+              <Text className="text-xs font-bold text-yellow-500">Counts: {todayWork.cycleCountCount}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* Today's Tasks */}
       <View className="px-4 mb-2">
@@ -134,7 +142,7 @@ export default function HomeScreen() {
         ) : !tasks || tasks.length === 0 ? (
           <EmptyState icon="🎉" title="All caught up!" message="No tasks for today." />
         ) : (
-          tasks.map((task) => (
+          sortedTasks.map((task) => (
             <View key={task.id} className="mb-3">
               <TaskCard task={task} onPress={handleTaskPress} />
             </View>
@@ -142,49 +150,74 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Upcoming Tasks */}
+      {/* Upcoming Tasks — collapsible */}
       {!upcomingLoading && upcomingGroups.length > 0 ? (
         <View className="mt-6 px-4">
-          <View className="flex-row items-center mb-3">
-            <Text className="text-lg font-semibold text-foreground flex-1">
+          <TouchableOpacity
+            onPress={() => setShowUpcoming((p) => !p)}
+            className="flex-row items-center"
+            activeOpacity={0.7}
+          >
+            <Text className="text-sm font-semibold text-foreground flex-1">
               Upcoming
             </Text>
-            <Text className="text-xs text-muted-foreground">
-              Read-only
+            <Text className="text-xs text-muted-foreground mr-1">
+              {upcomingGroups.reduce((sum, g) => sum + g.tasks.length, 0)} tasks
             </Text>
-          </View>
-          {upcomingGroups.map((group) => (
-            <View key={group.label} className="mb-4">
-              <Text className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-                {group.label}
+            <Text className="text-xs text-muted-foreground">
+              {showUpcoming ? "▲" : "▼"}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Collapsed preview — always visible */}
+          {!showUpcoming && firstUpcomingTask ? (
+            <View className="mt-1.5">
+              <Text className="text-xs text-muted-foreground/70" numberOfLines={1}>
+                {upcomingGroups[0]?.label}: {firstUpcomingTask.title}
               </Text>
-              {group.tasks.map((task) => (
-                <View key={task.id} className="mb-2">
-                  <UpcomingTaskCard task={task} />
+            </View>
+          ) : null}
+
+          {/* Expanded list */}
+          {showUpcoming ? (
+            <View className="mt-2">
+              {upcomingGroups.map((group) => (
+                <View key={group.label} className="mb-2">
+                  <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                    {group.label}
+                  </Text>
+                  {group.tasks.map((task) => (
+                    <Text key={task.id} className="text-sm text-muted-foreground/80 ml-1 mb-0.5" numberOfLines={1}>
+                      {task.title}
+                    </Text>
+                  ))}
                 </View>
               ))}
             </View>
-          ))}
+          ) : null}
         </View>
       ) : null}
 
-      {/* Quick Actions */}
+      {/* Quick Actions — side-by-side */}
       <View className="px-4 pb-6 mt-6">
         <Separator className="mb-4" />
-
-        <QuickActionButton
-          icon="📷"
-          label="Scan Barcode"
-          variant="scan"
-          onPress={() => router.push("/(app)/(scanner)")}
-        />
-
-        <View className="mt-2">
-          <QuickActionButton
-            icon="🔍"
-            label="Stock Lookup"
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={() => router.push("/(app)/(scanner)")}
+            className="flex-1 flex-row items-center justify-center bg-primary/10 border border-primary/30 rounded-xl p-4 min-h-[52px]"
+            activeOpacity={0.7}
+          >
+            <Text className="text-lg mr-2">📷</Text>
+            <Text className="text-base font-semibold text-primary">Scan</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => router.push("/(app)/stock/lookup")}
-          />
+            className="flex-1 flex-row items-center justify-center bg-card border border-border rounded-xl p-4 min-h-[52px]"
+            activeOpacity={0.7}
+          >
+            <Text className="text-lg mr-2">🔍</Text>
+            <Text className="text-base font-semibold text-foreground">Lookup</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </ScrollView>

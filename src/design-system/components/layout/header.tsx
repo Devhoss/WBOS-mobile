@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 interface HeaderProps {
   title: string;
   showBack?: boolean;
+  onBack?: () => void;
   rightAction?: React.ReactNode;
   className?: string;
 }
@@ -12,6 +13,7 @@ interface HeaderProps {
 export function Header({
   title,
   showBack = false,
+  onBack,
   rightAction,
   className,
 }: HeaderProps) {
@@ -26,7 +28,7 @@ export function Header({
     >
       {showBack ? (
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => (onBack ? onBack() : router.back())}
           className="w-[44px] h-[44px] items-center justify-center -ml-2"
         >
           <Text className="text-foreground text-xl">←</Text>

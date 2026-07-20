@@ -10,7 +10,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
-  const { settings, updateSettings } = useSettings();
+  const { settings, loaded, updateSettings } = useSettings();
 
   async function handleSignOut() {
     try {
@@ -27,6 +27,11 @@ export default function SettingsScreen() {
     <SafeArea>
       <Header title="Settings" showBack />
       <ScrollView className="flex-1 px-4">
+        {!loaded ? (
+          <View className="flex-1 items-center justify-center py-20">
+            <Text className="text-muted-foreground">Loading settings...</Text>
+          </View>
+        ) : null}
         {user ? (
           <View className="mb-6">
             <View className="bg-card rounded-lg border border-border p-4 items-center">

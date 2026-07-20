@@ -51,7 +51,6 @@ async function playEffect(source: number, label: string) {
   let player: ReturnType<typeof createAudioPlayer> | null = null;
   try {
     await initSounds();
-    await setIsAudioActiveAsync(true);
     player = createAudioPlayer(source, {
       keepAudioSessionActive: true,
       downloadFirst: false,

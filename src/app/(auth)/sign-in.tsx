@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { View, Text, KeyboardAvoidingView, Platform } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { SafeArea } from "@/design-system";
@@ -30,7 +36,10 @@ export default function SignInScreen() {
     setError(null);
 
     try {
-      const { token, session } = await signIn({ email: email.trim(), password });
+      const { token, session } = await signIn({
+        email: email.trim(),
+        password,
+      });
       await setTokens({ token });
 
       let role = "";
@@ -40,9 +49,15 @@ export default function SignInScreen() {
 
       try {
         const meRes = await client.get<{
-          id: string; email: string; name: string; image: string | null;
-          role: string; organizationId: string; organizationName: string;
-          membershipId: string; warehouses: Array<{ id: string; name: string; code: string }>;
+          id: string;
+          email: string;
+          name: string;
+          image: string | null;
+          role: string;
+          organizationId: string;
+          organizationName: string;
+          membershipId: string;
+          warehouses: Array<{ id: string; name: string; code: string }>;
         }>(apiUrl("/auth/me"));
         const me = meRes.data;
         role = me.role;
@@ -71,9 +86,15 @@ export default function SignInScreen() {
     } catch (err: unknown) {
       let message = "Sign in failed. Try again.";
       if (err && typeof err === "object" && "response" in err) {
-        const axiosErr = err as { response?: { status?: number; data?: { error?: string; message?: string } } };
+        const axiosErr = err as {
+          response?: {
+            status?: number;
+            data?: { error?: string; message?: string };
+          };
+        };
         const status = axiosErr.response?.status;
-        const serverMsg = axiosErr.response?.data?.error ?? axiosErr.response?.data?.message;
+        const serverMsg =
+          axiosErr.response?.data?.error ?? axiosErr.response?.data?.message;
         if (serverMsg) message = `${serverMsg} (${status})`;
         else if (status) message = `Server returned ${status}`;
       } else if (err instanceof Error) {
@@ -91,18 +112,22 @@ export default function SignInScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1 justify-center px-6"
       >
-        <View className="mb-8">
-          <Text className="text-3xl font-bold text-foreground text-center">
-            WBOS Mobile
-          </Text>
-          <Text className="text-muted-foreground text-center mt-2">
-            Sign in to your account
+        <View className="mb-10 items-center">
+          <Image
+            source={require("../../../assets/icon.png")}
+            className="w-16 h-16 mb-4"
+            resizeMode="contain"
+          />
+          <Text className="text-muted-foreground text-center text-sm tracking-wide">
+            Wholesale Business Operations
           </Text>
         </View>
 
         {error ? (
           <View className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-4">
-            <Text className="text-destructive text-sm text-center">{error}</Text>
+            <Text className="text-destructive text-sm text-center">
+              {error}
+            </Text>
           </View>
         ) : null}
 

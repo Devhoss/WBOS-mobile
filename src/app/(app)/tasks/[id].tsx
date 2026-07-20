@@ -9,7 +9,7 @@ import type { TaskStatus } from "@/api/tasks/types";
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { data: task, isLoading } = useTaskDetail(id);
+  const { data: task, isLoading, error } = useTaskDetail(id);
   const startMutation = useStartTask();
   const completeMutation = useCompleteTask();
 
@@ -18,6 +18,23 @@ export default function TaskDetailScreen() {
       <SafeArea>
         <Header title="Task Details" showBack />
         <Loading fullScreen message="Loading task..." />
+      </SafeArea>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeArea>
+        <Header title="Task Details" showBack />
+        <View className="flex-1 items-center justify-center p-6">
+          <Text className="text-4xl mb-4">⚠️</Text>
+          <Text className="text-lg font-semibold text-foreground mb-2">
+            Failed to Load
+          </Text>
+          <Text className="text-muted-foreground text-center">
+            {error instanceof Error ? error.message : "An unexpected error occurred."}
+          </Text>
+        </View>
       </SafeArea>
     );
   }

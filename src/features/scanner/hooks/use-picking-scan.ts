@@ -79,19 +79,17 @@ export function usePickingScan(
   const processingLines = useRef<Set<string>>(new Set());
 
   function playFeedback(variant: "success" | "error") {
-    queueMicrotask(() => {
-      if (settings.scannerSoundEnabled) {
-        if (variant === "success") playSuccessSound();
-        else playErrorSound();
+    if (settings.scannerSoundEnabled) {
+      if (variant === "success") playSuccessSound();
+      else playErrorSound();
+    }
+    if (settings.hapticsEnabled) {
+      if (variant === "error") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } else {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
-      if (settings.hapticsEnabled) {
-        if (variant === "error") {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        } else {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        }
-      }
-    });
+    }
   }
 
   const handleScan = useCallback(

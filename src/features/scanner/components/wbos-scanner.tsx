@@ -20,39 +20,8 @@ const SUPPORTED_FORMATS: TargetBarcodeFormat[] = [
 
 function toBarcodeObservation(barcode: {
   rawValue: string | undefined;
-  boundingBox?: { left: number; right: number; top: number; bottom: number };
-  cornerPoints?: Array<{ x: number; y: number }>;
 }): BarcodeObservation | null {
   if (!barcode.rawValue) return null;
-
-  if (barcode.boundingBox) {
-    const width = Math.abs(barcode.boundingBox.right - barcode.boundingBox.left);
-    const height = Math.abs(barcode.boundingBox.bottom - barcode.boundingBox.top);
-    return {
-      value: barcode.rawValue,
-      centerX: barcode.boundingBox.left + width / 2,
-      centerY: barcode.boundingBox.top + height / 2,
-      width,
-      height,
-    };
-  }
-
-  if (barcode.cornerPoints && barcode.cornerPoints.length > 0) {
-    const xs = barcode.cornerPoints.map((point) => point.x);
-    const ys = barcode.cornerPoints.map((point) => point.y);
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
-    return {
-      value: barcode.rawValue,
-      centerX: minX + (maxX - minX) / 2,
-      centerY: minY + (maxY - minY) / 2,
-      width: Math.abs(maxX - minX),
-      height: Math.abs(maxY - minY),
-    };
-  }
-
   return { value: barcode.rawValue };
 }
 
@@ -83,6 +52,7 @@ export function WBOSScanner({
   const { hasPermission, requestPermission } = useCameraPermission();
   const [permDenied, setPermDenied] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const permRequested = useRef(false);
   const onBarcodeScannedRef = useRef(onBarcodeScanned);
   onBarcodeScannedRef.current = onBarcodeScanned;
   const onBarcodeFrameRef = useRef(onBarcodeFrame);
@@ -94,15 +64,18 @@ export function WBOSScanner({
     }
   }, [isActive]);
 
-  const scanLineAnim = useRef(new Animated.Value(0)).current;
-
   useEffect(() => {
     if (hasPermission) return;
-    if (!hasPermission && permDenied) return;
+    if (permDenied) return;
+    if (permRequested.current) return;
+
+    permRequested.current = true;
     requestPermission().then((granted) => {
       if (!granted) setPermDenied(true);
     });
   }, [hasPermission, permDenied, requestPermission]);
+
+  const scanLineAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (overlay) return;
@@ -128,8 +101,6 @@ export function WBOSScanner({
   const handleBarcodeScanned = useCallback(
     (barcodes: Array<{
       rawValue: string | undefined;
-      boundingBox?: { left: number; right: number; top: number; bottom: number };
-      cornerPoints?: Array<{ x: number; y: number }>;
     }>) => {
       const vals = barcodes
         .map(toBarcodeObservation)
@@ -175,12 +146,26 @@ export function WBOSScanner({
             <Text style={styles.deniedIcon}>📷</Text>
             <Text style={styles.deniedTitle}>Camera Access Denied</Text>
             <Text style={styles.deniedText}>
-              Camera access has been permanently denied.{'\n'}
-              Enable it in Settings to use barcode scanning.
+              Camera access has been denied.{'\n'}
+              Grant it below or enable it in Settings.
             </Text>
             <TouchableOpacity
-              onPress={() => Linking.openSettings()}
+              onPress={() => {
+                requestPermission().then((granted) => {
+                  if (granted) {
+                    setPermDenied(false);
+                    permRequested.current = true;
+                  }
+                });
+              }}
               style={styles.primaryButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.primaryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => Linking.openSettings()}
+              style={[styles.primaryButton, { marginTop: 12 }]}
               activeOpacity={0.7}
             >
               <Text style={styles.primaryButtonText}>Open Settings</Text>
@@ -199,33 +184,14 @@ export function WBOSScanner({
       );
     }
 
-    return (
-      <View style={styles.container}>
-        <View style={styles.centerContent}>
-          <Text style={styles.deniedIcon}>📷</Text>
-          <Text style={styles.deniedTitle}>Camera Permission Needed</Text>
-          <Text style={styles.deniedText}>
-            WBOS needs camera access to scan barcodes.
-          </Text>
-          <TouchableOpacity
-            onPress={() => requestPermission()}
-            style={styles.primaryButton}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.primaryButtonText}>Grant Access</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+    return <View style={styles.container} />;
   }
 
   return (
     <View style={styles.container}>
-      {/* Overlay — rendered BEFORE Camera so it displays on top */}
       <View style={styles.overlay} pointerEvents="box-none">
         {overlay ?? (
           <View style={styles.defaultOverlay} pointerEvents="box-none">
-            {/* Scan frame */}
             <View style={styles.frameContainer}>
               <View style={styles.frame}>
                 <View style={[styles.corner, styles.cornerTopLeft]} />
@@ -249,7 +215,6 @@ export function WBOSScanner({
         {children}
       </View>
 
-      {/* Close button */}
       {onClose ? (
         <TouchableOpacity
           onPress={onClose}
@@ -260,7 +225,6 @@ export function WBOSScanner({
         </TouchableOpacity>
       ) : null}
 
-      {/* Torch button — only shown once camera is initialized AND active */}
       {onToggleTorch && cameraReady && isActive ? (
         <TouchableOpacity
           onPress={onToggleTorch}
@@ -273,7 +237,6 @@ export function WBOSScanner({
         </TouchableOpacity>
       ) : null}
 
-      {/* Camera — rendered AFTER overlay (below it visually due to zIndex) */}
       <Camera
         style={StyleSheet.absoluteFill}
         device={device}

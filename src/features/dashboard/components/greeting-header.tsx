@@ -22,26 +22,23 @@ export function GreetingHeader({ userName, userRole, onSettingsPress }: Greeting
   const firstName = userName.split(" ")[0];
 
   return (
-    <View className="flex-row items-start justify-between mb-6 mt-6">
-      <View className="flex-1">
-        <Text className="text-3xl font-bold text-foreground">{greeting}</Text>
-        <Text className="text-lg font-semibold text-foreground mt-1">
-          {firstName}
-        </Text>
+    <View className="flex-row items-center justify-between mb-3">
+      <Text className="text-xl font-bold text-foreground">
+        {greeting}, {firstName}
+      </Text>
+      <View className="flex-row items-center gap-2">
         {userRole ? (
-          <Text className="text-sm text-muted-foreground mt-0.5">
-            {formatRole(userRole)}
-          </Text>
+          <Text className="text-xs text-muted-foreground">{formatRole(userRole)}</Text>
+        ) : null}
+        {onSettingsPress ? (
+          <TouchableOpacity
+            onPress={onSettingsPress}
+            className="size-9 rounded-full bg-muted items-center justify-center"
+          >
+            <Text className="text-base">⚙️</Text>
+          </TouchableOpacity>
         ) : null}
       </View>
-      {onSettingsPress ? (
-        <TouchableOpacity
-          onPress={onSettingsPress}
-          className="size-10 rounded-full bg-muted items-center justify-center"
-        >
-          <Text className="text-lg">⚙️</Text>
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 }

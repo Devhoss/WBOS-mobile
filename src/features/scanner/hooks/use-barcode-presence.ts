@@ -2,31 +2,18 @@ import { useRef, useCallback } from "react";
 
 export interface BarcodeObservation {
   value: string;
-  centerX?: number;
-  centerY?: number;
-  width?: number;
-  height?: number;
 }
 
 type BarcodeState = {
   lastSeen: number;
   visible: boolean;
   lastAcceptedAt: number;
-  lastAcceptedSignature: BarcodeSignature | null;
-};
-
-type BarcodeSignature = {
-  centerX: number;
-  centerY: number;
-  area: number;
 };
 
 interface BarcodePresenceOptions {
   absenceTimeout?: number;
+  lockoutTimeout?: number;
   staleTimeout?: number;
-  minRepeatInterval?: number;
-  movementThreshold?: number;
-  areaChangeThreshold?: number;
 }
 
 let scanCounter = 0;
@@ -43,15 +30,14 @@ export function useBarcodePresence(
 ) {
   const {
     absenceTimeout = 120,
+    lockoutTimeout = 1000,
     staleTimeout = 10000,
-    minRepeatInterval = 280,
-    movementThreshold = 22,
-    areaChangeThreshold = 0.18,
   } = options ?? {};
   const onBarcodePresentedRef = useRef(onBarcodePresented);
   onBarcodePresentedRef.current = onBarcodePresented;
 
   const barcodePresence = useRef(new Map<string, BarcodeState>());
+  const acceptedAt = useRef(new Map<string, number>());
 
   const handleFrame = useCallback(
     (barcodes: Array<string | BarcodeObservation>) => {
@@ -65,32 +51,40 @@ export function useBarcodePresence(
       for (const observation of observations) {
         const code = observation.value;
         const state = presence.get(code);
-        const signature = getSignature(observation);
-        const moved = state?.lastAcceptedSignature && signature
-          ? hasMeaningfulMovement(state.lastAcceptedSignature, signature, movementThreshold, areaChangeThreshold)
-          : false;
-        const canRepeatByMovement =
-          !!state?.visible &&
-          !!moved &&
-          now - state.lastAcceptedAt >= minRepeatInterval;
 
-        if (!state || !state.visible || canRepeatByMovement) {
+        if (!state) {
+          const sinceLastAccept = now - (acceptedAt.current.get(code) ?? 0);
+          if (sinceLastAccept < 200) {
+            presenceLog("guard-rejected-duplicate", { code, sinceLastAccept });
+            continue;
+          }
           const id = ++scanCounter;
-          presenceLog("accepted", {
-            id,
-            code,
-            reason: !state ? "new" : !state.visible ? "re-presented-after-gap" : "movement-rearm",
-            hiddenForMs: state ? Math.round(now - state.lastSeen) : null,
-            moved,
-            signature,
-          });
+          presenceLog("accepted", { id, code, reason: "new" });
+          acceptedAt.current.set(code, now);
           onBarcodePresentedRef.current(code, id);
           presence.set(code, {
-            lastSeen: now,
-            visible: true,
-            lastAcceptedAt: now,
-            lastAcceptedSignature: signature,
+            lastSeen: now, visible: true, lastAcceptedAt: now,
           });
+        } else if (!state.visible) {
+          const hiddenForMs = Math.round(now - state.lastSeen);
+          if (hiddenForMs < lockoutTimeout) {
+            presenceLog("restored-after-brief-gap", { code, hiddenForMs });
+            state.visible = true;
+            state.lastSeen = now;
+          } else {
+            const sinceLastAccept = now - (acceptedAt.current.get(code) ?? 0);
+            if (sinceLastAccept < 200) {
+              presenceLog("guard-rejected-duplicate", { code, sinceLastAccept });
+              continue;
+            }
+            const id = ++scanCounter;
+            presenceLog("accepted", { id, code, reason: "re-presented-after-gap", hiddenForMs });
+            acceptedAt.current.set(code, now);
+            onBarcodePresentedRef.current(code, id);
+            state.lastSeen = now;
+            state.visible = true;
+            state.lastAcceptedAt = now;
+          }
         } else {
           state.lastSeen = now;
         }
@@ -116,7 +110,7 @@ export function useBarcodePresence(
         }
       }
     },
-    [absenceTimeout, staleTimeout, minRepeatInterval, movementThreshold, areaChangeThreshold],
+    [absenceTimeout, lockoutTimeout, staleTimeout],
   );
 
   const consumeBarcode = useCallback((barcode: string) => {
@@ -127,33 +121,4 @@ export function useBarcodePresence(
   }, []);
 
   return { handleFrame, consumeBarcode };
-}
-
-function getSignature(observation: BarcodeObservation): BarcodeSignature | null {
-  if (
-    typeof observation.centerX !== "number" ||
-    typeof observation.centerY !== "number" ||
-    typeof observation.width !== "number" ||
-    typeof observation.height !== "number"
-  ) {
-    return null;
-  }
-  return {
-    centerX: observation.centerX,
-    centerY: observation.centerY,
-    area: Math.max(1, observation.width * observation.height),
-  };
-}
-
-function hasMeaningfulMovement(
-  previous: BarcodeSignature,
-  next: BarcodeSignature,
-  movementThreshold: number,
-  areaChangeThreshold: number,
-) {
-  const dx = next.centerX - previous.centerX;
-  const dy = next.centerY - previous.centerY;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-  const areaChange = Math.abs(next.area - previous.area) / Math.max(previous.area, 1);
-  return distance >= movementThreshold || areaChange >= areaChangeThreshold;
 }
