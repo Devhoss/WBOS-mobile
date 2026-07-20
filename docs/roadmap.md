@@ -39,7 +39,7 @@ Pick order execution workflow.
 - [x] Start/completion flow
 - [x] Undo last scan
 
-## Phase 2C — Scanner (In Progress)
+## Phase 2C — Scanner (Complete)
 
 Generic barcode scanning engine.
 
@@ -47,13 +47,13 @@ Generic barcode scanning engine.
 - [x] Continuous scan mode
 - [x] Auto-confirm successful scans
 - [x] Wrong barcode feedback
-- [ ] Standalone scanner screen
-- [ ] Sound feedback (expo-audio)
+- [x] Standalone scanner screen
+- [x] Sound feedback (expo-audio)
 - [ ] Hardware trigger support
 
-## Phase 3 — Delivery (Planned)
+## Phase 3 — Delivery (Deferred)
 
-Delivery execution features.
+Delivery execution features — not a priority for current warehouse-only operations. Revisit when delivery drivers are hired.
 
 - [ ] Types and interfaces defined
 - [ ] Assigned deliveries list
@@ -63,20 +63,20 @@ Delivery execution features.
 - [ ] Photo attachment
 - [ ] GPS timestamp
 
-## Phase 4 — Inventory (Planned)
+## Phase 4 — Inventory (Partial)
 
-Stock management features.
+Stock management features. Stock lookup by barcode/SKU is done; cycle counting and transfers need screens.
 
-- [ ] Types and interfaces defined
-- [ ] Stock lookup by barcode
-- [ ] Stock lookup by SKU/name
-- [ ] Cycle counting flow
-- [ ] Inventory adjustments
-- [ ] Transfer verification
+- [x] Types and interfaces defined
+- [x] Stock lookup by barcode
+- [x] Stock lookup by SKU/name
+- [ ] Cycle counting flow (API exists, no mobile UI)
+- [ ] Inventory adjustments (API exists, no mobile UI)
+- [ ] Transfer verification (API exists, no mobile UI)
 
-## Phase 5 — Offline & Polish (Planned)
+## Phase 5 — Offline & Polish (Deferred)
 
-Production readiness.
+Offline support is structurally present (offline store, queue) but not functionally complete. Revisit when network reliability is a problem.
 
 - [ ] Offline synchronization engine
 - [ ] Queued mutations

@@ -17,35 +17,46 @@ npm install
 
 The app supports three environments:
 
-| Environment  | File                  | Use Case              |
-|-------------|-----------------------|-----------------------|
-| Development | `.env.development`    | Local dev server      |
-| Homelab     | `.env.homelab`        | Self-hosted staging   |
-| Production  | `.env.production`     | Production API        |
+| Environment  | File                  | API URL                       | Use Case              |
+|-------------|-----------------------|-------------------------------|-----------------------|
+| Development | `.env.development`    | `http://192.168.100.10:3000`  | Local dev server (HTTP) |
+| Homelab     | `.env.homelab`        | `https://wbos.home.lab`       | Self-hosted staging   |
+| Production  | `.env.production`     | `https://api.wbos.app`        | Production API        |
 
-Copy `.env.example` to the desired file and set the correct API URL.
+Copy `.env.example` to the desired file and adjust the API URL for your network.
 
-## Running
+**Important:** The development environment uses HTTP (cleartext). The Android manifest has `android:usesCleartextTraffic="true"` to permit this.
 
-```bash
-# Start development
-npm start
+## Build for Android
 
-# Start for Android
-npm run android
+Environment variables must be set in the same PowerShell session as the Gradle build:
 
-# Start for iOS
-npm run ios
+```powershell
+# Development build
+$env:EXPO_PUBLIC_APP_ENV="development"; $env:EXPO_PUBLIC_API_URL="http://192.168.100.10:3000"; $env:EXPO_PUBLIC_AUTH_URL="http://192.168.100.10:3000"; cd android && .\gradlew assembleRelease
 
-# Start for web
-npm run web
+# Homelab build (integration testing)
+$env:EXPO_PUBLIC_APP_ENV="homelab"; $env:EXPO_PUBLIC_API_URL="https://wbos.home.lab"; $env:EXPO_PUBLIC_AUTH_URL="https://wbos.home.lab"; cd android && .\gradlew assembleRelease
 ```
 
-## Type Checking
+The APK is written to `android/app/build/outputs/apk/release/app-release.apk`.
+
+## Development Workflow
 
 ```bash
-npm run typecheck
+# Development against local server
+npm start                # Start Expo dev server
+npm run android          # Start on connected Android device/emulator
+npm run typecheck        # Check TypeScript errors
 ```
+
+The mobile app connects to the API URL baked into the build. For development via Expo Go, the config is loaded from `.env.development` automatically.
+
+## Network Notes
+
+- **Development:** Use `http://<local-ip>:3000` (LAN, HTTP)
+- **Homelab:** Use `https://wbos.home.lab` (requires Pi-hole DNS + working Private DNS config on device — Android's system resolver may not resolve `.home.lab` if Private DNS is enabled; disable Private DNS in Settings → Network & Internet for homelab testing)
+- **Production:** Use `https://api.wbos.app` (public DNS, HTTPS)
 
 ## Project Conventions
 

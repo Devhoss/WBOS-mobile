@@ -43,7 +43,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { data: tasks, isLoading, isRefetching, refetch, error: tasksError } = useTodayTasks();
   const { data: upcomingTasks, isLoading: upcomingLoading, refetch: refetchUpcoming, error: upcomingError } = useUpcomingTasks();
-  const { data: todayWork, error: workError } = useTodayWork();
+  const { data: todayWork, error: workError, refetch: refetchWork } = useTodayWork();
   const [refreshing, setRefreshing] = useState(false);
   const [showUpcoming, setShowUpcoming] = useState(false);
 
@@ -51,7 +51,8 @@ export default function HomeScreen() {
     useCallback(() => {
       refetch();
       refetchUpcoming();
-    }, [refetch, refetchUpcoming]),
+      refetchWork();
+    }, [refetch, refetchUpcoming, refetchWork]),
   );
 
   const upcomingGroups = useMemo(() => groupByBusinessDate(upcomingTasks ?? []), [upcomingTasks]);
@@ -67,7 +68,7 @@ export default function HomeScreen() {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await Promise.all([refetch(), refetchUpcoming()]);
+    await Promise.all([refetch(), refetchUpcoming(), refetchWork()]);
     setRefreshing(false);
   }
 
