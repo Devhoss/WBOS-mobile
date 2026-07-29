@@ -84,32 +84,7 @@ export default function SignInScreen() {
       queryClient.invalidateQueries();
       router.replace("/(app)/(home)");
     } catch (err: unknown) {
-      // Log full error details for debugging (visible in Logcat)
       const axiosErr = err as Record<string, unknown>;
-      console.error(
-        "[SignIn]",
-        JSON.stringify(
-          {
-            message: err instanceof Error ? err.message : String(err),
-            code: axiosErr.code,
-            name: err instanceof Error ? err.name : undefined,
-            hasResponse: "response" in axiosErr,
-            hasRequest: "request" in axiosErr,
-            config: axiosErr.config
-              ? {
-                  url: (axiosErr.config as Record<string, unknown>).url,
-                  method: (axiosErr.config as Record<string, unknown>).method,
-                  baseURL: (axiosErr.config as Record<string, unknown>).baseURL,
-                  timeout: (axiosErr.config as Record<string, unknown>).timeout,
-                }
-              : undefined,
-            responseData: (axiosErr.response as Record<string, unknown>)?.data,
-            responseStatus: (axiosErr.response as Record<string, unknown>)?.status,
-          },
-          null,
-          2
-        )
-      );
 
       let message = "Sign in failed. Try again.";
       if (axiosErr.response) {

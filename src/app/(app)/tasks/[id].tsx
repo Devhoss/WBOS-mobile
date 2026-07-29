@@ -59,7 +59,7 @@ export default function TaskDetailScreen() {
   const t = task;
   const typeInfo = taskTypeConfig[t.type] ?? { icon: "📋", label: "Task" };
   const priorityBadge = taskPriorityBadges[t.priority];
-  const isStarted = t.status !== "ASSIGNED";
+  const isStarted = t.status !== "READY";
   const isCompleted = t.status === "COMPLETED" || t.status === "CANCELLED";
   const totalLines = t.lines?.length ?? 0;
   const completedLines = t.lines?.filter((l) => l.status === "COMPLETED" || l.completedQuantity > 0).length ?? 0;

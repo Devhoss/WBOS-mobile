@@ -244,7 +244,7 @@ export function WBOSScanner({
         outputs={[scannerOutput]}
         onStarted={() => setCameraReady(true)}
         onStopped={() => setCameraReady(false)}
-        torchMode={cameraReady ? (torch ? "on" : "off") : undefined}
+        torchMode={torch ? "on" : undefined}
         enableNativeTapToFocusGesture={cameraReady}
       />
     </View>

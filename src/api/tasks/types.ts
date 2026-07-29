@@ -5,7 +5,7 @@ export type TaskType =
   | "GOODS_RECEIPT"
   | "INVENTORY_TRANSFER";
 
-export type TaskStatus = "SCHEDULED" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+export type TaskStatus = "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
 export type TaskPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
 

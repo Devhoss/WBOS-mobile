@@ -4,6 +4,7 @@ import axios, {
 } from "axios";
 import { apiConfig } from "./config";
 import { getTokens, clearTokens } from "../auth/token-storage";
+import { useAuthStore } from "../auth/store";
 
 const client = axios.create({
   timeout: apiConfig.timeout,
@@ -29,6 +30,7 @@ client.interceptors.response.use(
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
       await clearTokens();
+      useAuthStore.getState().clear();
     }
     return Promise.reject(error);
   }

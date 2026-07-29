@@ -29,6 +29,7 @@ export function useStartTask() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["pick-session", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 }
@@ -41,6 +42,7 @@ export function useCompleteTask() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["pick-session", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 }

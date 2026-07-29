@@ -6,6 +6,7 @@ import { useAuthStore } from "@/infrastructure/auth/store";
 import { useNetwork } from "@/infrastructure/network/use-network";
 import { useTodayTasks, useUpcomingTasks, TaskCard } from "@/features/tasks";
 import { GreetingHeader, useTodayWork } from "@/features/dashboard";
+import { useNotifications } from "@/features/notifications";
 import { SkeletonList, EmptyState, Separator } from "@/design-system";
 import type { TaskSummary } from "@/api/tasks/types";
 
@@ -41,6 +42,7 @@ export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
   const { isConnected } = useNetwork();
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useNotifications();
   const { data: tasks, isLoading, isRefetching, refetch, error: tasksError } = useTodayTasks();
   const { data: upcomingTasks, isLoading: upcomingLoading, refetch: refetchUpcoming, error: upcomingError } = useUpcomingTasks();
   const { data: todayWork, error: workError, refetch: refetchWork } = useTodayWork();
@@ -73,7 +75,6 @@ export default function HomeScreen() {
   }
 
   function handleTaskPress(task: TaskSummary) {
-    if (task.status === "SCHEDULED") return;
     if (task.type === "PICK_ORDER") {
       router.push(`/(app)/picking/${task.id}`);
     } else {
@@ -108,6 +109,8 @@ export default function HomeScreen() {
         <GreetingHeader
           userName={user?.name ?? "Worker"}
           userRole={user?.role}
+          unreadCount={unreadCount}
+          onNotificationsPress={() => router.push("/(app)/notifications")}
           onSettingsPress={() => router.push("/(app)/settings")}
         />
       </View>
@@ -218,6 +221,16 @@ export default function HomeScreen() {
           >
             <Text className="text-lg mr-2">🔍</Text>
             <Text className="text-base font-semibold text-foreground">Lookup</Text>
+          </TouchableOpacity>
+        </View>
+        <View className="mt-3">
+          <TouchableOpacity
+            onPress={() => router.push("/(app)/signed-invoice" as any)}
+            className="flex-row items-center justify-center bg-card border border-border rounded-xl p-4 min-h-[52px]"
+            activeOpacity={0.7}
+          >
+            <Text className="text-lg mr-2">📎</Text>
+            <Text className="text-base font-semibold text-foreground">Signed Invoices</Text>
           </TouchableOpacity>
         </View>
       </View>

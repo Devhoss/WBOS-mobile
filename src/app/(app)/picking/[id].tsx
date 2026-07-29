@@ -21,7 +21,6 @@ import { getInvoiceDownloadUrl } from "@/api/invoices";
 import { useQueryClient } from "@tanstack/react-query";
 import { WBOSScanner, usePickingScan, useBarcodePresence, type ScanMode } from "@/features/scanner";
 import { SafeArea, Header, Card, Loading, Badge } from "@/design-system";
-import { playSuccessSound } from "@/shared/utils/sound";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function PickingScreen() {
@@ -209,7 +208,7 @@ export default function PickingScreen() {
     );
   }
 
-  const isStarted = session.status !== "ASSIGNED" && session.status !== "SCHEDULED" && session.status !== "CANCELLED";
+  const isStarted = session.status !== "READY" && session.status !== "SCHEDULED" && session.status !== "CANCELLED";
   const isCompleted = session.status === "COMPLETED";
 
   const workflowBadge = (() => {
@@ -775,14 +774,6 @@ export default function PickingScreen() {
             ) : null}
           </View>
         ) : null}
-
-        <TouchableOpacity
-          onPress={() => { playSuccessSound(); }}
-          className="bg-zinc-800/30 py-2 rounded-lg items-center mb-4 mt-2"
-          activeOpacity={0.5}
-        >
-          <Text className="text-zinc-500 text-xs">Test Sound</Text>
-        </TouchableOpacity>
 
         {canMarkLoaded ? (
           <View className="mt-4 mb-8">

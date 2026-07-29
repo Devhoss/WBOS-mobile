@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "161390057682",
+    "project_id": "wbos-2fa12",
+    "storage_bucket": "wbos-2fa12.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:161390057682:android:ab9f78d54cdd69ae2b350b",
+        "android_client_info": {
+          "package_name": "com.wbos.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAGjti5ktxWJxW0AntsrR_PMZQ8YGNWrPc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -79,7 +79,7 @@ export function TaskCard({ task, onPress }: TaskCardProps) {
                   "text-foreground"
                 )}>
                   {task.status === "IN_PROGRESS" ? "Active" :
-                   task.status === "ASSIGNED" ? "Ready" :
+                    task.status === "READY" ? "Ready" :
                    task.status === "SCHEDULED" ? "Scheduled" :
                    task.status.replace("_", " ")}
                 </Text>

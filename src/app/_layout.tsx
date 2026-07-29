@@ -1,20 +1,49 @@
 import { useEffect } from "react";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
+import * as Notifications from "expo-notifications";
 import { Providers } from "@/core/providers";
 import { useAuthStore } from "@/infrastructure/auth/store";
 import { getStoredUser, getTokens } from "@/infrastructure/auth/token-storage";
+import { unregisterDeviceToken } from "@/api/device-tokens";
+import { usePushNotifications } from "@/features/notifications/hooks/use-push-notifications";
 import { initSounds } from "@/shared/utils/sound";
 import "./globals.css";
 
 SplashScreen.preventAutoHideAsync();
 
+function useNotificationNavigation() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      const { entityType, entityId } = data as Record<string, string | undefined>;
+      if (!entityType || !entityId) return;
+
+      let route: string | null = null;
+      if (entityType === "task" || entityType === "shipment") {
+        route = `/(app)/picking/${entityId}`;
+      }
+      if (route) {
+        setTimeout(() => router.push(route as any), 300);
+      }
+    });
+
+    return () => sub.remove();
+  }, [router]);
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({});
   const setUser = useAuthStore((s) => s.setUser);
   const setStatus = useAuthStore((s) => s.setStatus);
+  const status = useAuthStore((s) => s.status);
+
+  usePushNotifications();
+  useNotificationNavigation();
 
   useEffect(() => {
     async function bootstrap() {
@@ -41,6 +70,28 @@ export default function RootLayout() {
     initSounds();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      const doUnregister = async () => {
+        try {
+          const tokens = await getTokens();
+          if (tokens) {
+            const storedUser = await getStoredUser();
+            if (storedUser) {
+              const devicePushToken = await Notifications.getDevicePushTokenAsync().catch(() => null);
+              if (devicePushToken?.data) {
+                await unregisterDeviceToken(devicePushToken.data);
+              }
+            }
+          }
+        } catch {
+          /* best-effort */
+        }
+      };
+      doUnregister();
+    }
+  }, [status]);
 
   if (!fontsLoaded) {
     return null;

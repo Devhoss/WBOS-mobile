@@ -23,9 +23,10 @@ export default function AppLayout() {
       <Stack.Screen name="(scanner)" />
       <Stack.Screen name="tasks/[id]" />
       <Stack.Screen name="picking/[id]" />
-      <Stack.Screen name="audio-test" />
       <Stack.Screen name="stock/lookup" />
       <Stack.Screen name="settings/index" />
+      <Stack.Screen name="signed-invoice/index" />
+      <Stack.Screen name="notifications/index" />
     </Stack>
   );
 }

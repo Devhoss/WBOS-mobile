@@ -4,8 +4,10 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeArea, Header, Loading } from "@/design-system";
 import { useAuthStore } from "@/infrastructure/auth/store";
 import { useStockLookupByBarcode, StockItem } from "@/features/stock";
+import { getWarehouses } from "@/api/warehouses";
 import type { StockLevel } from "@/api/inventory/types";
 import type { StockItemDisplay } from "@/features/stock/types";
+import type { Warehouse } from "@/api/warehouses/types";
 
 function toDisplay(level: StockLevel, barcode: string): StockItemDisplay {
   return {
@@ -27,10 +29,13 @@ export default function StockLookupScreen() {
   const [barcode, setBarcode] = useState(initialBarcode ?? "");
   const [searchBarcode, setSearchBarcode] = useState<string | null>(initialBarcode ?? null);
 
-  const warehouseId = user?.warehouseId;
+  const [warehouseId, setWarehouseId] = useState(user?.warehouseId ?? "");
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [loadingWarehouses, setLoadingWarehouses] = useState(false);
+
   const { data: result, isLoading, isError, error } = useStockLookupByBarcode(
     warehouseId ? searchBarcode : null,
-    warehouseId ?? "",
+    warehouseId,
   );
 
   useEffect(() => {
@@ -40,6 +45,16 @@ export default function StockLookupScreen() {
     }
   }, [initialBarcode]);
 
+  useEffect(() => {
+    if (!user?.warehouseId) {
+      setLoadingWarehouses(true);
+      getWarehouses().then((list) => {
+        setWarehouses(list);
+        if (list.length === 1) setWarehouseId(list[0].id);
+      }).catch(() => {}).finally(() => setLoadingWarehouses(false));
+    }
+  }, [user?.warehouseId]);
+
   function handleLookup() {
     const trimmed = barcode.trim();
     if (!trimmed) return;
@@ -47,18 +62,41 @@ export default function StockLookupScreen() {
   }
 
   if (!warehouseId) {
-    return (
-      <SafeArea>
-      <Header title="Stock Lookup" showBack />
-        <View className="flex-1 items-center justify-center p-6">
-          <Text className="text-4xl mb-4">⚠️</Text>
-          <Text className="text-lg font-semibold text-foreground mb-2">No Warehouse Assigned</Text>
-          <Text className="text-muted-foreground text-center">
-            You need to be assigned to a warehouse to look up stock.
-          </Text>
-        </View>
-      </SafeArea>
-    );
+    if (loadingWarehouses) {
+      return (
+        <SafeArea>
+          <Header title="Stock Lookup" showBack />
+          <View className="flex-1 items-center justify-center p-6">
+            <Loading message="Loading warehouses..." />
+          </View>
+        </SafeArea>
+      );
+    }
+    if (warehouses.length > 1) {
+      return (
+        <SafeArea>
+          <Header title="Stock Lookup" showBack />
+          <View className="flex-1 items-center justify-center p-6">
+            <Text className="text-4xl mb-4">🏭</Text>
+            <Text className="text-lg font-semibold text-foreground mb-2">Select Warehouse</Text>
+            <Text className="text-muted-foreground text-center mb-6">
+              Choose a warehouse to look up stock in.
+            </Text>
+            {warehouses.map((w) => (
+              <TouchableOpacity
+                key={w.id}
+                onPress={() => setWarehouseId(w.id)}
+                className="w-full max-w-xs bg-background border border-border rounded-xl py-4 px-5 mb-3"
+                activeOpacity={0.7}
+              >
+                <Text className="text-foreground font-semibold text-base">{w.name}</Text>
+                <Text className="text-muted-foreground text-sm">{w.code}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </SafeArea>
+      );
+    }
   }
 
   return (
@@ -103,7 +141,7 @@ export default function StockLookupScreen() {
           </View>
         ) : searchBarcode && result ? (
           <StockItem item={toDisplay(result, searchBarcode)} />
-        ) : searchBarcode && !isError ? (
+        ) : searchBarcode && !isError && warehouseId ? (
           <View className="items-center py-12">
             <Text className="text-4xl mb-3">🔍</Text>
             <Text className="text-muted-foreground text-center">

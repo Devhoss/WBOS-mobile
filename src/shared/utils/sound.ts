@@ -31,7 +31,6 @@ async function initSoundsInner() {
     });
     soundLog("init:setAudioModeAsync:ok");
   } catch (error) {
-    console.warn("WBOS sound mode setup failed", error);
     soundLog("init:setAudioModeAsync:error", error);
   }
 
@@ -39,7 +38,6 @@ async function initSoundsInner() {
     await setIsAudioActiveAsync(true);
     soundLog("init:setIsAudioActiveAsync:ok");
   } catch (error) {
-    console.warn("WBOS sound activation failed", error);
     soundLog("init:setIsAudioActiveAsync:error", error);
   }
 
@@ -82,7 +80,6 @@ async function playEffect(source: number, label: string) {
       }
     }, 750);
   } catch (error) {
-    console.warn("WBOS sound playback failed", error);
     soundLog("effect:error", { label, error });
     try {
       player?.remove();
