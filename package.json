@@ -54,6 +54,9 @@
     "doctor": {
       "reactNativeDirectoryCheck": {
         "exclude": ["react-native-nitro-image"]
+      },
+      "appConfigFieldsNotSyncedCheck": {
+        "enabled": false
       }
     },
     "install": {
