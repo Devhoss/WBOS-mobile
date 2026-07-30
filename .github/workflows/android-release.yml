@@ -33,6 +33,9 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x android/gradlew
+
       - name: Build Android release APK
         run: ./gradlew assembleRelease --no-daemon
         working-directory: ./android
@@ -43,5 +46,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wbos-mobile-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
