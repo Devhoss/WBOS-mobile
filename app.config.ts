@@ -44,8 +44,5 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => ({
     authUrl: process.env.EXPO_PUBLIC_AUTH_URL,
     appEnv,
   },
-  android: {
-    ...config.android,
-    usesCleartextTraffic: appEnv === "development",
-  } as Record<string, unknown> as ExpoConfig["android"],
+  android: config.android,
 });
