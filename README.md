@@ -345,7 +345,7 @@ wbos-mobile/
 - **Secure state**: Expo Secure Store (tokens)
 - Never duplicate server state in Zustand
 
-### Design System
+### Design System 
 
 - All UI primitives live in `src/design-system/components/ui/`
 - Import from `@/design-system` barrel export
