@@ -81,7 +81,16 @@ export default function RootLayout() {
             if (storedUser) {
               const devicePushToken = await Notifications.getDevicePushTokenAsync().catch(() => null);
               if (devicePushToken?.data) {
-                await unregisterDeviceToken(devicePushToken.data);
+                try {
+                  const httpStatus = await unregisterDeviceToken(devicePushToken.data);
+                  console.info(`[push] Device token unregistered (HTTP ${httpStatus})`);
+                } catch (err) {
+                  const axiosErr = err as { response?: { status?: number } };
+                  console.warn(
+                    `[push] Device token unregister failed${axiosErr.response?.status ? ` (HTTP ${axiosErr.response.status})` : ""}`,
+                    err,
+                  );
+                }
               }
             }
           }

@@ -21,12 +21,15 @@ export default function SignInScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const setUser = useAuthStore((s) => s.setUser);
+  const authMessage = useAuthStore((s) => s.authMessage);
+  const setAuthMessage = useAuthStore((s) => s.setAuthMessage);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSignIn() {
+    setAuthMessage(null);
     if (!email.trim() || !password.trim()) {
       setError("Enter your email and password");
       return;
@@ -122,6 +125,14 @@ export default function SignInScreen() {
             Wholesale Business Operations
           </Text>
         </View>
+
+        {authMessage ? (
+          <View className="bg-primary/10 border border-primary/30 rounded-lg p-3 mb-4">
+            <Text className="text-primary text-sm text-center">
+              {authMessage}
+            </Text>
+          </View>
+        ) : null}
 
         {error ? (
           <View className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-4">
