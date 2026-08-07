@@ -1,4 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
@@ -7,27 +14,69 @@ import { SafeArea, Header, EmptyState } from "@/design-system";
 import { formatDateTime } from "@/shared/utils/format";
 
 const typeIcons: Record<string, string> = {
-  TASK_ASSIGNED: "📋",
-  SHIPMENT_READY: "🚚",
-  DELIVERY_COMPLETED: "✅",
+  TASK_ASSIGNED: "📦",
+  TASK_SCHEDULED: "📅",
+  TASK_AVAILABLE: "⏰",
   TASK_COMPLETED: "✅",
+  SHIPMENT_READY: "🚚",
+  DELIVERY_COMPLETED: "🏁",
 };
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { notifications, isLoading, markAsRead, markAllRead } = useNotifications();
+  const {
+    notifications,
+    readCount,
+    isLoading,
+    markAsRead,
+    markAllRead,
+    clearRead,
+    deleteOne,
+  } = useNotifications();
+
+  function handleDelete(id: string) {
+    Alert.alert("Delete Notification", "Remove this notification?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => deleteOne(id) },
+    ]);
+  }
 
   return (
     <SafeArea>
       <Header
         title="Notifications"
         showBack
-        rightAction={notifications.length > 0 ? (
-          <TouchableOpacity onPress={markAllRead}>
-            <Text className="text-xs font-semibold text-primary">Read All</Text>
-          </TouchableOpacity>
-        ) : undefined}
+        rightAction={
+          notifications.length > 0 ? (
+            <View className="flex-row items-center gap-1 shrink-0">
+              {readCount > 0 ? (
+                <TouchableOpacity
+                  onPress={clearRead}
+                  className="shrink-0 px-1 py-2"
+                >
+                  <Text
+                    className="text-xs font-semibold text-muted-foreground"
+                    numberOfLines={1}
+                  >
+                    Clear Read
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                onPress={markAllRead}
+                className="shrink-0 px-1 py-2"
+              >
+                <Text
+                  className="text-xs font-semibold text-primary"
+                  numberOfLines={1}
+                >
+                  Mark All Read
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : undefined
+        }
       />
       <ScrollView className="flex-1 p-4">
         {isLoading ? (
@@ -50,16 +99,21 @@ export default function NotificationsScreen() {
                   router.push(`/(app)/picking/${n.link}` as any);
                 }
               }}
+              onLongPress={() => handleDelete(n.id)}
               className={`mb-2 rounded-xl border p-4 ${n.isRead ? "border-zinc-800/50 bg-zinc-900/30" : "border-primary/30 bg-primary/5"}`}
             >
               <View className="flex-row items-start gap-3">
                 <Text className="text-xl">{typeIcons[n.type] ?? "🔔"}</Text>
                 <View className="flex-1 min-w-0">
-                  <Text className={`text-sm font-semibold ${n.isRead ? "text-gray-400" : "text-white"}`}>
+                  <Text
+                    className={`text-sm font-semibold ${n.isRead ? "text-gray-400" : "text-white"}`}
+                  >
                     {n.title}
                   </Text>
                   {n.body ? (
-                    <Text className={`text-xs mt-0.5 ${n.isRead ? "text-gray-500" : "text-gray-400"}`}>
+                    <Text
+                      className={`text-xs mt-0.5 ${n.isRead ? "text-gray-500" : "text-gray-400"}`}
+                    >
                       {n.body}
                     </Text>
                   ) : null}

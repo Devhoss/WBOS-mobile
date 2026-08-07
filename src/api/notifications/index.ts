@@ -14,3 +14,11 @@ export async function markNotificationRead(id: string): Promise<void> {
 export async function markAllNotificationsRead(): Promise<void> {
   await client.post(apiUrl("/notifications/read-all"));
 }
+
+export async function clearReadNotifications(): Promise<void> {
+  await client.post(apiUrl("/notifications/clear-read"));
+}
+
+export async function deleteNotification(id: string): Promise<void> {
+  await client.delete(apiUrl(`/notifications/${id}`));
+}

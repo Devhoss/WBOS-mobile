@@ -115,19 +115,15 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Summary strip */}
+      {/* Summary strip — today's completed work, resets daily */}
       {todayWork ? (
-        <View className="flex-row px-4 mb-4 gap-2">
-          {todayWork.pickOrderCount > 0 ? (
-            <View className="flex-row items-center bg-blue-500/10 border border-blue-500/30 rounded-full px-3 py-1.5">
-              <Text className="text-xs font-bold text-blue-500">Picks: {todayWork.pickOrderCount}</Text>
-            </View>
-          ) : null}
-          {todayWork.deliveryCount > 0 ? (
-            <View className="flex-row items-center bg-green-500/10 border border-green-500/30 rounded-full px-3 py-1.5">
-              <Text className="text-xs font-bold text-green-500">Deliveries: {todayWork.deliveryCount}</Text>
-            </View>
-          ) : null}
+        <View className="flex-row px-4 mb-4 gap-2 flex-wrap">
+          <View className="flex-row items-center bg-blue-500/10 border border-blue-500/30 rounded-full px-3 py-1.5">
+            <Text className="text-xs font-bold text-blue-500">Today's Picks: {todayWork.pickOrderCount}</Text>
+          </View>
+          <View className="flex-row items-center bg-green-500/10 border border-green-500/30 rounded-full px-3 py-1.5">
+            <Text className="text-xs font-bold text-green-500">Today's Deliveries: {todayWork.deliveryCount}</Text>
+          </View>
           {todayWork.cycleCountCount > 0 ? (
             <View className="flex-row items-center bg-yellow-500/10 border border-yellow-500/30 rounded-full px-3 py-1.5">
               <Text className="text-xs font-bold text-yellow-500">Counts: {todayWork.cycleCountCount}</Text>
@@ -191,9 +187,16 @@ export default function HomeScreen() {
                     {group.label}
                   </Text>
                   {group.tasks.map((task) => (
-                    <Text key={task.id} className="text-sm text-muted-foreground/80 ml-1 mb-0.5" numberOfLines={1}>
-                      {task.title}
-                    </Text>
+                    <TouchableOpacity
+                      key={task.id}
+                      onPress={() => handleTaskPress(task)}
+                      className="ml-1 mb-0.5 py-0.5"
+                      activeOpacity={0.7}
+                    >
+                      <Text className="text-sm text-muted-foreground/80" numberOfLines={1}>
+                        {task.title}
+                      </Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
               ))}

@@ -21,6 +21,29 @@ export function formatDate(date: string | Date): string {
   });
 }
 
+export function formatTime(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function formatAvailability(dueAt: string | null): string {
+  if (!dueAt) return "Waiting for scheduled time.";
+  const d = new Date(dueAt);
+  if (isNaN(d.getTime())) return "Waiting for scheduled time.";
+
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startDue = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dayDiff = Math.round((startDue - startToday) / 86400000);
+
+  if (dayDiff <= 0) return `Available today at ${formatTime(d)}`;
+  if (dayDiff === 1) return `Available tomorrow at ${formatTime(d)}`;
+  return `Available ${formatDate(dueAt)}`;
+}
+
 export function formatDateTime(date: string | Date): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleDateString("en-US", {

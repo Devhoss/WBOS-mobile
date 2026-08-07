@@ -73,8 +73,13 @@ export function usePushNotifications() {
           console.info(`[push] Device token registered successfully (HTTP ${httpStatus})`);
         } catch (err) {
           const axiosErr = err as { response?: { status?: number } };
+          const status = axiosErr.response?.status;
+          if (status === 401) {
+            console.warn("[push] Device token registration rejected (session expired) — handled by sign-in flow");
+            return;
+          }
           console.error(
-            `[push] Device token registration FAILED${axiosErr.response?.status ? ` (HTTP ${axiosErr.response.status})` : ""}`,
+            `[push] Device token registration FAILED${status ? ` (HTTP ${status})` : ""}`,
             err,
           );
         }

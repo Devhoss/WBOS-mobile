@@ -23,6 +23,7 @@ export interface PickSession {
   pickedQuantity: number;
   lines: PickLineDetail[];
   status: string;
+  dueAt: string | null;
   updatedAt: string;
   shipmentId: string | null;
   shipmentStatus: string | null;

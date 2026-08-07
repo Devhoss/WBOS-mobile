@@ -67,10 +67,10 @@ Key architectural decisions:
 | 1 — Foundation | ✅ Complete | Expo project, routing, auth, API client, design system, docs |
 | 2A — Task Engine | ✅ Complete | Generic task model, today's tasks dashboard, task detail screen |
 | 2B — Picking | ✅ Complete | Pick session, pick lines, quantity confirmation |
-| 2C — Scanner | 🚧 In Progress | Camera integration, continuous scanning, auto-confirm, undo |
-| 3 — Delivery | ⏳ Planned | Delivery confirmation, signatures, photos, GPS |
+| 2C — Scanner | ✅ Complete | Camera integration, continuous scanning, torch control, auto-confirm, undo |
+| 3 — Delivery | 🚧 In Progress | Signed invoice capture shipped; photos & GPS remain |
 | 4 — Inventory | ⏳ Planned | Stock lookup, cycle counting, inventory adjustments |
-| 5 — Offline & Polish | ⏳ Planned | Sync engine, push notifications, biometrics, production builds |
+| 5 — Offline & Polish | 🚧 In Progress | Push notifications shipped; sync engine, biometrics, production builds remain |
 
 ---
 
@@ -88,7 +88,8 @@ Key architectural decisions:
 | [MMKV](https://github.com/mrousavy/react-native-mmkv) | Fast key-value local storage |
 | [Better Auth](https://www.better-auth.com/) | Authentication (same as WBOS Web) |
 | [Axios](https://axios-http.com/) | HTTP client with interceptors |
-| [Expo Camera](https://docs.expo.dev/versions/v57.0.0/sdk/camera/) | Barcode scanning via camera |
+| [VisionCamera](https://github.com/mrousavy/react-native-vision-camera) | Camera pipeline with imperative torch control |
+| [VisionCamera Barcode Scanner](https://github.com/mrousavy/vision-camera-barcode-scanner) | On-frame barcode detection |
 | [Expo Audio](https://docs.expo.dev/versions/v57.0.0/sdk/audio/) | Audio playback for scanner sounds (success/error beeps) |
 | [Expo Secure Store](https://docs.expo.dev/versions/v57.0.0/sdk/securestore/) | Encrypted token storage |
 | [Zod](https://zod.dev/) | Schema validation |
@@ -230,22 +231,28 @@ wbos-mobile/
 │   └── (app)/                        # Authenticated screens
 │       ├── _layout.tsx               # Auth guard
 │       ├── (home)/index.tsx          # Today's Tasks dashboard
-│       ├── (scanner)/index.tsx       # Standalone scanner (future)
+│       ├── (scanner)/index.tsx       # Barcode lookup scanner
 │       ├── tasks/[id].tsx            # Task detail
 │       ├── picking/[id].tsx          # Picking workflow with scanner
+│       ├── notifications/index.tsx   # Notification center
+│       ├── signed-invoice/index.tsx  # Signed invoice capture
 │       ├── stock/lookup.tsx          # Stock lookup
 │       └── settings/index.tsx        # App settings + sign out
 │
 ├── src/
 │   ├── api/                          # Domain-organized API clients
 │   │   ├── auth/                     # Sign in, refresh, me
+│   │   ├── device-tokens/            # Push notification token registration
 │   │   ├── inventory/                # Stock levels, cycle counts
+│   │   ├── invoices/                 # Invoice downloads & signatures
+│   │   ├── notifications/            # Notification feed + read state
 │   │   ├── picking/                  # Pick sessions, line confirmation
 │   │   ├── products/                 # Barcode lookup, search
+│   │   ├── sales/                    # Deliveries & signed invoices
 │   │   ├── scanner/                  # Barcode resolution
-│   │   ├── shipments/               # Delivery management
+│   │   ├── shipments/                # Delivery management
 │   │   ├── tasks/                    # Task CRUD, status updates
-│   │   └── warehouses/              # Today's work summary
+│   │   └── warehouses/               # Today's work summary
 │   │
 │   ├── app/                          # App-level configuration
 │   │   ├── globals.css               # Tailwind base styles + CSS variables
@@ -264,7 +271,8 @@ wbos-mobile/
 │   │
 │   ├── features/                    # Feature modules
 │   │   ├── dashboard/              # GreetingHeader, QuickActionButton
-│   │   ├── scanner/                 # useScanner state machine, ScanView, BarcodeResult
+│   │   ├── scanner/                 # WBOSScanner (VisionCamera), BarcodeResult, scan hooks
+│   │   ├── notifications/           # useNotifications, usePushNotifications
 │   │   ├── tasks/                   # TaskList, TaskCard, TaskStatusBadge, useTodayTasks
 │   │   ├── picking/                 # PickLineItem, PickProgressBar, usePickSession
 │   │   ├── stock/                   # StockItem, useStockLookup
@@ -297,7 +305,6 @@ wbos-mobile/
 │   ├── roadmap.md
 │   ├── workflow.md
 │   ├── barcode-strategy.md
-│   ├── roles.md
 │   └── dashboard-vision.md
 │
 ├── assets/                          # Static assets (icons, images, sounds)

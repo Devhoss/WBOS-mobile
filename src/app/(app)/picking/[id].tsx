@@ -20,8 +20,9 @@ import { updateShipmentStatus, deliverShipment, updateWarehouseNotes } from "@/a
 import { getInvoiceDownloadUrl } from "@/api/invoices";
 import { useQueryClient } from "@tanstack/react-query";
 import { WBOSScanner, usePickingScan, useBarcodePresence, type ScanMode } from "@/features/scanner";
-import { SafeArea, Header, Card, Loading, Badge } from "@/design-system";
+import { SafeArea, Header, Card, Loading, Badge, Toast, useToast } from "@/design-system";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { formatAvailability } from "@/shared/utils/format";
 
 export default function PickingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,6 +43,8 @@ export default function PickingScreen() {
   const [bulkQtyText, setBulkQtyText] = useState("");
   const successOverlayOpacity = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
+  const { toast, showToast, hideToast } = useToast();
+  const prevStatusRef = useRef<string | null>(null);
 
   const consumeBarcodeRef = useRef<(barcode: string) => void>((_b: string) => {});
   const handleScanRef = useRef<(barcode: string, scanId?: number) => Promise<void>>(async (_b: string, _s?: number) => {});
@@ -84,6 +87,15 @@ export default function PickingScreen() {
       setShowScanner(true);
     }
   }, []);
+
+  useEffect(() => {
+    const status = session?.status;
+    if (!status) return;
+    if (prevStatusRef.current === "SCHEDULED" && status === "READY") {
+      showToast("✅ This task is now available for picking.", "success");
+    }
+    prevStatusRef.current = status;
+  }, [session?.status, showToast]);
 
   async function handleStartPicking() {
     await startTaskMutation.mutateAsync({ id, updatedAt: session!.updatedAt });
@@ -683,7 +695,21 @@ export default function PickingScreen() {
           </Card>
         ) : null}
 
-        {!isStarted ? (
+        {session.status === "SCHEDULED" ? (
+          <Card className="mb-4 p-4">
+            <View className="flex-row items-center">
+              <Text className="text-2xl mr-3">⏳</Text>
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-foreground">
+                  {formatAvailability(session.dueAt)}
+                </Text>
+                <Text className="text-xs text-muted-foreground mt-0.5">
+                  This pick order will be available to start at its scheduled time.
+                </Text>
+              </View>
+            </View>
+          </Card>
+        ) : !isStarted ? (
           <TouchableOpacity
             onPress={handleStartPicking}
             disabled={startTaskMutation.isPending}
@@ -869,6 +895,12 @@ export default function PickingScreen() {
           </View>
         ) : null}
       </ScrollView>
+      <Toast
+        message={toast.message}
+        variant={toast.variant}
+        visible={toast.visible}
+        onHide={hideToast}
+      />
     </SafeArea>
   );
 }

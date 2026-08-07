@@ -1,8 +1,9 @@
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useEffect, useRef } from "react";
 import { useTaskDetail, useStartTask, useCompleteTask, TaskStatusBadge, taskTypeConfig, taskPriorityBadges } from "@/features/tasks";
-import { SafeArea, Header, Card, Separator, Loading, Badge } from "@/design-system";
-import { formatDateTime } from "@/shared/utils/format";
+import { SafeArea, Header, Card, Separator, Loading, Badge, Toast, useToast } from "@/design-system";
+import { formatDateTime, formatAvailability } from "@/shared/utils/format";
 import { playSuccessSound } from "@/shared/utils/sound";
 import type { TaskStatus } from "@/api/tasks/types";
 
@@ -12,6 +13,17 @@ export default function TaskDetailScreen() {
   const { data: task, isLoading, error } = useTaskDetail(id);
   const startMutation = useStartTask();
   const completeMutation = useCompleteTask();
+  const { toast, showToast, hideToast } = useToast();
+  const prevStatusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const status = task?.status;
+    if (!status) return;
+    if (prevStatusRef.current === "SCHEDULED" && status === "READY") {
+      showToast("✅ This task is now available for picking.", "success");
+    }
+    prevStatusRef.current = status;
+  }, [task?.status, showToast]);
 
   if (isLoading) {
     return (
@@ -59,7 +71,7 @@ export default function TaskDetailScreen() {
   const t = task;
   const typeInfo = taskTypeConfig[t.type] ?? { icon: "📋", label: "Task" };
   const priorityBadge = taskPriorityBadges[t.priority];
-  const isStarted = t.status !== "READY";
+  const isStarted = t.status !== "READY" && t.status !== "SCHEDULED";
   const isCompleted = t.status === "COMPLETED" || t.status === "CANCELLED";
   const totalLines = t.lines?.length ?? 0;
   const completedLines = t.lines?.filter((l) => l.status === "COMPLETED" || l.completedQuantity > 0).length ?? 0;
@@ -191,7 +203,21 @@ export default function TaskDetailScreen() {
 
         {/* Actions */}
         <View className="flex-row gap-3 mt-2 pb-8">
-          {!isStarted ? (
+          {t.status === "SCHEDULED" ? (
+            <Card className="flex-1 p-4">
+              <View className="flex-row items-center">
+                <Text className="text-2xl mr-3">⏳</Text>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-foreground">
+                    {formatAvailability(t.dueAt)}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground mt-0.5">
+                    This task will be available to start at its scheduled time.
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          ) : !isStarted ? (
             <TouchableOpacity
               onPress={handleStart}
               disabled={startMutation.isPending}
@@ -227,6 +253,12 @@ export default function TaskDetailScreen() {
           ) : null}
         </View>
       </ScrollView>
+      <Toast
+        message={toast.message}
+        variant={toast.variant}
+        visible={toast.visible}
+        onHide={hideToast}
+      />
     </SafeArea>
   );
 }

@@ -37,8 +37,12 @@ interface PickingDetailResponse {
   title: string;
   warehouseName: string;
   status: string;
+  dueAt: string | null;
   updatedAt: string;
-  reference: Record<string, unknown> | null;
+  reference: {
+    soNumber?: string;
+    customerName?: string;
+  } | null;
   shipmentId: string | null;
   shipmentStatus: string | null;
   shipmentNotes: string | null;
@@ -76,6 +80,7 @@ function mapPickingDetailToSession(detail: PickingDetailResponse): PickSession {
     totalQuantity: detail.totalQuantity,
     pickedQuantity: detail.pickedQuantity,
     status: detail.status,
+    dueAt: detail.dueAt,
     updatedAt: detail.updatedAt,
     shipmentId: detail.shipmentId,
     shipmentStatus: detail.shipmentStatus,

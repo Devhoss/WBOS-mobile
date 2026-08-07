@@ -38,14 +38,14 @@ export function Header({
       )}
 
       <Text
-        className="flex-1 text-lg font-semibold text-foreground text-center"
+        className="flex-1 min-w-0 text-lg font-semibold text-foreground text-center"
         numberOfLines={1}
       >
         {title}
       </Text>
 
       {rightAction ? (
-        <View className="w-[44px] items-center">{rightAction}</View>
+        <View className="min-w-[44px] items-center shrink-0">{rightAction}</View>
       ) : (
         <View className="w-[44px]" />
       )}

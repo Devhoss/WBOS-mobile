@@ -7,7 +7,7 @@ import {
   Animated,
   Linking,
 } from "react-native";
-import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
+import { Camera, useCameraDevice, useCameraPermission, type CameraRef } from "react-native-vision-camera";
 import { useBarcodeScannerOutput, type TargetBarcodeFormat } from "react-native-vision-camera-barcode-scanner";
 import type { BarcodeObservation } from "../hooks/use-barcode-presence";
 
@@ -57,6 +57,36 @@ export function WBOSScanner({
   onBarcodeScannedRef.current = onBarcodeScanned;
   const onBarcodeFrameRef = useRef(onBarcodeFrame);
   onBarcodeFrameRef.current = onBarcodeFrame;
+
+  const cameraRef = useRef<CameraRef>(null);
+  const torchTargetRef = useRef(torch);
+  torchTargetRef.current = torch;
+  const torchBusyRef = useRef(false);
+
+  const applyTorch = useCallback((mode: "on" | "off") => {
+    const controller = cameraRef.current?.controller;
+    if (controller == null) return;
+    torchBusyRef.current = true;
+    controller
+      .setTorchMode(mode)
+      .catch(() => {
+        // CameraX cancels an in-flight torch command with "There is a new
+        // enableTorch being set" when a newer one supersedes it. Safe to ignore:
+        // the latest target is re-applied in `.finally` below.
+      })
+      .finally(() => {
+        torchBusyRef.current = false;
+        if (torchTargetRef.current !== (mode === "on")) {
+          applyTorch(torchTargetRef.current ? "on" : "off");
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!isActive || !cameraReady) return;
+    if (torchBusyRef.current) return;
+    applyTorch(torch ? "on" : "off");
+  }, [isActive, cameraReady, torch, applyTorch]);
 
   useEffect(() => {
     if (!isActive) {
@@ -238,13 +268,13 @@ export function WBOSScanner({
       ) : null}
 
       <Camera
+        ref={cameraRef}
         style={StyleSheet.absoluteFill}
         device={device}
         isActive={isActive}
         outputs={[scannerOutput]}
         onStarted={() => setCameraReady(true)}
         onStopped={() => setCameraReady(false)}
-        torchMode={torch ? "on" : undefined}
         enableNativeTapToFocusGesture={cameraReady}
       />
     </View>
