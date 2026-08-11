@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPickSession, confirmPickLine, submitPickScanAction } from "@/api/picking";
 import type { PickConfirmationRequest, PickScanActionRequest } from "@/api/picking/types";
 import type { PickSession } from "@/api/picking/types";
+import { optimisticUpdate, optimisticIncrement, optimisticDecrement } from "./pick-optimistic";
 
 export function usePickSession(taskId: string) {
   return useQuery({
@@ -15,20 +16,6 @@ export function usePickSession(taskId: string) {
       return status === "SCHEDULED" ? 15 * 1000 : false;
     },
   });
-}
-
-function optimisticUpdate(
-  old: PickSession | undefined,
-  lineId: string,
-  quantity: number,
-): PickSession | undefined {
-  if (!old) return old;
-  const lines = old.lines.map((l) =>
-    l.id === lineId ? { ...l, quantityPicked: quantity } : l,
-  );
-  const pickedLines = lines.filter((l) => l.quantityPicked >= l.quantityOrdered).length;
-  const pickedQuantity = lines.reduce((s, l) => s + l.quantityPicked, 0);
-  return { ...old, lines, pickedLines, pickedQuantity };
 }
 
 export function useConfirmPickLine(taskId: string) {
@@ -53,30 +40,9 @@ export function useConfirmPickLine(taskId: string) {
     },
     onSettled: (_data, _error, _vars) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pick-session", taskId] });
     },
   });
-}
-
-function optimisticIncrement(
-  old: PickSession | undefined,
-  lineId: string,
-  delta: number,
-): PickSession | undefined {
-  if (!old) return old;
-  const line = old.lines.find((l) => l.id === lineId);
-  if (!line) return old;
-  return optimisticUpdate(old, lineId, Math.min(line.quantityPicked + delta, line.quantityOrdered));
-}
-
-function optimisticDecrement(
-  old: PickSession | undefined,
-  lineId: string,
-  delta: number,
-): PickSession | undefined {
-  if (!old) return old;
-  const line = old.lines.find((l) => l.id === lineId);
-  if (!line) return old;
-  return optimisticUpdate(old, lineId, Math.max(line.quantityPicked - delta, 0));
 }
 
 export function useSubmitPickScanAction(taskId: string) {
@@ -100,6 +66,7 @@ export function useSubmitPickScanAction(taskId: string) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pick-session", taskId] });
     },
   });
 }

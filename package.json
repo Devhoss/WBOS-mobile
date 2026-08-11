@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "expo start -c"
   },
   "dependencies": {
@@ -53,14 +54,19 @@
   "expo": {
     "doctor": {
       "reactNativeDirectoryCheck": {
-        "exclude": ["react-native-nitro-image"]
+        "exclude": [
+          "react-native-nitro-image"
+        ]
       },
       "appConfigFieldsNotSyncedCheck": {
         "enabled": false
       }
     },
     "install": {
-      "exclude": ["react-native-vision-camera", "react-native-vision-camera-barcode-scanner"]
+      "exclude": [
+        "react-native-vision-camera",
+        "react-native-vision-camera-barcode-scanner"
+      ]
     }
   },
   "devDependencies": {
@@ -70,6 +76,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.7.0",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.64.0"
+    "typescript-eslint": "^8.64.0",
+    "vitest": "^4.1.10"
   }
 }
