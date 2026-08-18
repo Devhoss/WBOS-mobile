@@ -23,6 +23,7 @@ import { WBOSScanner, usePickingScan, useBarcodePresence, type ScanMode } from "
 import { SafeArea, Header, Card, Loading, Badge, Toast, useToast } from "@/design-system";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatAvailability } from "@/shared/utils/format";
+import { toUserMessage } from "@/shared/errors/user-message";
 
 export default function PickingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -97,19 +98,40 @@ export default function PickingScreen() {
     prevStatusRef.current = status;
   }, [session?.status, showToast]);
 
+  /**
+   * These mutations used to be `try { ... } finally { setBusy(false) }` with no
+   * `catch`. A failed Deliver looked exactly like a successful one — the
+   * spinner stopped and nothing else happened — so a driver could walk away
+   * believing a delivery had been recorded when it had not.
+   *
+   * Each now reports the failure and, importantly, does NOT advance any local
+   * state: the cache is only invalidated, and the notes editor only closes,
+   * after the request has actually succeeded.
+   */
   async function handleStartPicking() {
-    await startTaskMutation.mutateAsync({ id, updatedAt: session!.updatedAt });
-    queryClient.invalidateQueries({ queryKey: ["pick-session", id] });
-    setShowScanner(true);
+    try {
+      await startTaskMutation.mutateAsync({ id, updatedAt: session!.updatedAt });
+      queryClient.invalidateQueries({ queryKey: ["pick-session", id] });
+      setShowScanner(true);
+    } catch (err) {
+      showToast(toUserMessage(err, "Could not start picking. Try again."), "error");
+    }
   }
 
   async function handleCompleteTask() {
     setShowScanner(false);
-    await completeTaskMutation.mutateAsync({
-      id,
-      updatedAt: session!.updatedAt,
-    });
-    queryClient.invalidateQueries({ queryKey: ["pick-session", id] });
+    try {
+      await completeTaskMutation.mutateAsync({
+        id,
+        updatedAt: session!.updatedAt,
+      });
+      queryClient.invalidateQueries({ queryKey: ["pick-session", id] });
+    } catch (err) {
+      // The task is not complete, so put the scanner back rather than leaving
+      // the screen looking finished.
+      setShowScanner(true);
+      showToast(toUserMessage(err, "Could not complete this task. Try again."), "error");
+    }
   }
 
   async function handleMarkLoaded() {
@@ -118,6 +140,8 @@ export default function PickingScreen() {
     try {
       await updateShipmentStatus(session.shipmentId, "LOADED");
       queryClient.invalidateQueries({ queryKey: ["pick-session", id] });
+    } catch (err) {
+      showToast(toUserMessage(err, "Could not mark this shipment as loaded. Try again."), "error");
     } finally {
       setMarkingLoaded(false);
     }
@@ -129,6 +153,8 @@ export default function PickingScreen() {
     try {
       await deliverShipment(session.shipmentId);
       queryClient.invalidateQueries({ queryKey: ["pick-session", id] });
+    } catch (err) {
+      showToast(toUserMessage(err, "Could not confirm this delivery. Try again."), "error");
     } finally {
       setDelivering(false);
     }
@@ -140,7 +166,11 @@ export default function PickingScreen() {
     try {
       await updateWarehouseNotes(session.shipmentId, warehouseNotes);
       queryClient.invalidateQueries({ queryKey: ["pick-session", id] });
+      // Only close the editor once the note is actually saved, so a failure
+      // never discards what was typed.
       setShowNotesInput(false);
+    } catch (err) {
+      showToast(toUserMessage(err, "Could not save these notes. Try again."), "error");
     } finally {
       setSavingNotes(false);
     }
@@ -152,7 +182,7 @@ export default function PickingScreen() {
       const url = await getInvoiceDownloadUrl(session.invoiceId);
       Linking.openURL(url);
     } catch (err) {
-      console.error("[Invoice] Failed to get download URL:", err);
+      showToast(toUserMessage(err, "Could not open the invoice. Try again."), "error");
     }
   }
 

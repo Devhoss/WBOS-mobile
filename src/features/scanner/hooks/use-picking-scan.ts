@@ -5,6 +5,7 @@ import { useConfirmPickLine, useSubmitPickScanAction } from "@/features/picking"
 import { useSettings } from "@/features/settings";
 import { playSuccessSound, playErrorSound } from "@/shared/utils/sound";
 import * as Haptics from "expo-haptics";
+import { toUserMessage } from "@/shared/errors/user-message";
 
 export type ScanMode = "increment" | "quantity";
 
@@ -91,6 +92,28 @@ export function usePickingScan(
       }
     }
   }
+
+  /**
+   * Report a mutation that the server refused or never received.
+   *
+   * The scan path used to roll the optimistic state back on error and show
+   * nothing at all — and it set the green success flash unconditionally, before
+   * the request resolved, so a REJECTED scan still flashed green. The picker
+   * had no way to tell a rejected pick from an accepted one.
+   *
+   * This reuses the existing error-flash affordance rather than adding a second
+   * vocabulary for failure.
+   */
+  const flashFailure = useCallback(
+    (lineId: string, error: unknown, fallback: string) => {
+      playFeedback("error");
+      setFlashLineId(lineId);
+      setFlashVariant("error");
+      setFlashText(toUserMessage(error, fallback));
+      setTimeout(() => setFlashLineId(null), 2000);
+    },
+    [],
+  );
 
   const handleScan = useCallback(
     async (barcode: string, scanId?: number) => {
@@ -179,6 +202,9 @@ export function usePickingScan(
             });
             undoStackRef.current.pop();
             setUndoStack([...undoStackRef.current]);
+            // Overwrites the optimistic green flash set below, so a refused
+            // pick can never be mistaken for an accepted one.
+            flashFailure(pendingLine.id, error, "That pick was not saved. Try again.");
           },
           onSuccess: () => {
             scanLog("pickAction:success", { lineId: pendingLine.id, clientEventId });
@@ -191,7 +217,7 @@ export function usePickingScan(
       setFlashText(`✓ ${pendingLine.productName}`);
       setTimeout(() => setFlashLineId(null), 500);
     },
-    [pickActionMutation, onPick, scanMode, settings, consumeBarcodeRef, queryClient, taskId],
+    [pickActionMutation, onPick, scanMode, settings, consumeBarcodeRef, queryClient, taskId, flashFailure],
   );
 
   const submitBulkQuantity = useCallback((quantity: number) => {
@@ -228,16 +254,17 @@ export function usePickingScan(
     confirmMutation.mutate(
       { lineId, quantity: targetQty },
       {
-        onError: () => {
+        onError: (error) => {
           undoStackRef.current.pop();
           setUndoStack([...undoStackRef.current]);
+          flashFailure(lineId, error, "That quantity was not saved. Try again.");
         },
         onSettled: () => {
           processingLines.current.delete(lineId);
         },
       },
     );
-  }, [pendingBulkLine, confirmMutation, onPick, settings]);
+  }, [pendingBulkLine, confirmMutation, onPick, settings, flashFailure]);
 
   const cancelBulkQuantity = useCallback(() => {
     setPendingBulkLine(null);
@@ -283,6 +310,7 @@ export function usePickingScan(
       {
         onError: (error) => {
           scanLog("undo:mutation:error", { last, error });
+          flashFailure(last.lineId, error, "Could not undo that pick. Try again.");
         },
         onSettled: () => {
           scanLog("undo:mutation:settled", last);
@@ -290,7 +318,7 @@ export function usePickingScan(
         },
       },
     );
-  }, [confirmMutation]);
+  }, [confirmMutation, flashFailure]);
 
   const showGreenFlash = useCallback(() => {
     setFlashLineId("__overlay__");
