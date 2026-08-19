@@ -36,6 +36,14 @@
       ],
       "expo-secure-store",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow WBOS Mobile to attach photos of signed delivery paperwork from your library.",
+          "cameraPermission": "Allow WBOS Mobile to photograph signed delivery paperwork.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-audio",
         {
           "recordAudioAndroid": false,

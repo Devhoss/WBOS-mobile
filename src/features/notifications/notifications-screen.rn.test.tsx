@@ -28,6 +28,14 @@ import { fireEvent, render } from "@testing-library/react-native";
 import NotificationsScreen from "@/app/(app)/notifications/index";
 
 /**
+ * Deliberately NOT under `src/app`. Expo Router builds its route table with
+ * `require.context` over that directory and pulls in every file it finds, so a
+ * test file there drags React Native Testing Library into the app bundle. RNTL
+ * requires Node's `console`, which Metro cannot resolve, and the app then fails
+ * to bundle at all — while typecheck, lint and Jest all still pass.
+ */
+
+/**
  * Two defects met on this screen.
  *
  * Every notification navigated to `/(app)/picking/<link>`, whatever its type.
