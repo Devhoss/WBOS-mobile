@@ -60,6 +60,7 @@ function readServerMessage(data: unknown): string | null {
 
 function messageForStatus(status: number, fallback: string): string {
   if (status === 401) return "Your session has expired. Please sign in again.";
+  if (status >= 300 && status < 400) return "Your session has expired. Please sign in again.";
   if (status === 403) return "You do not have permission to do that.";
   if (status === 404) return "That item no longer exists. Pull down to refresh.";
   if (status === 409) return "Someone else changed this first. Pull down to refresh and try again.";

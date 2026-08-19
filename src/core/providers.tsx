@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { createQueryClient } from "./query-client";
+import { queryClient } from "./query-client";
 import { NetworkProvider } from "@/infrastructure/network/detector";
 
 interface ProvidersProps {
@@ -8,8 +8,6 @@ interface ProvidersProps {
 }
 
 export function Providers({ children }: ProvidersProps) {
-  const [queryClient] = useState(() => createQueryClient());
-
   return (
     <QueryClientProvider client={queryClient}>
       <NetworkProvider>

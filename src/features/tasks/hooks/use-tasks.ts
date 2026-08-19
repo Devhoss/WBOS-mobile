@@ -7,7 +7,6 @@ export function useTodayTasks() {
     queryFn: getTodayTasks,
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
-    retry: 2,
   });
 }
 
@@ -17,7 +16,6 @@ export function useUpcomingTasks() {
     queryFn: getScheduledTasks,
     staleTime: 60 * 1000,
     refetchInterval: 120 * 1000,
-    retry: 2,
   });
 }
 

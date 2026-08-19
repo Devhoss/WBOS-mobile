@@ -51,6 +51,14 @@
           "backgroundColor": "#0F172A"
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": false
+          }
+        }
+      ],
       "./plugins/with-firebase-gradle"
     ],
     "experiments": {

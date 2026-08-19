@@ -1,7 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-
-    <application android:usesCleartextTraffic="true" tools:targetApi="28" tools:ignore="GoogleAppIndexingWarning" tools:replace="android:usesCleartextTraffic" />
+          xmlns:tools="http://schemas.android.com/tools">
+  <!--
+    Development talks to the WBOS web app over plain HTTP on the LAN, so debug
+    builds need cleartext. Release builds must not have it: homelab and
+    production are both HTTPS, and leaving the flag on meant a mistyped or
+    downgraded API URL would put a Bearer token on the wire with no platform
+    objection. This overlay is merged into debug builds only.
+  -->
+  <application
+      android:usesCleartextTraffic="true"
+      tools:replace="android:usesCleartextTraffic" />
 </manifest>

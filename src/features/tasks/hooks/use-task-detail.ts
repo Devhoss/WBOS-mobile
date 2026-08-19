@@ -7,7 +7,6 @@ export function useTaskDetail(id: string) {
     queryFn: () => getTaskDetail(id),
     enabled: !!id,
     staleTime: 30 * 1000,
-    retry: 2,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === "SCHEDULED" ? 15 * 1000 : false;

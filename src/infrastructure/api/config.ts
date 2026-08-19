@@ -44,6 +44,40 @@ export const apiConfig: ApiConfig = {
   timeout: 15000,
 };
 
+/**
+ * A release build must not be pointed at a development backend.
+ *
+ * Which `.env.<mode>` file supplies these URLs is decided by `EXPO_PUBLIC_APP_ENV`
+ * or `NODE_ENV` at Gradle time, and nothing binds a build variant to an
+ * environment — so a release APK built in the wrong shell would quietly talk to
+ * the development LAN address over plain HTTP. Release builds no longer permit
+ * cleartext, so that combination would fail at the first request with an
+ * opaque network error. Failing here instead says why.
+ */
+function assertEnvironmentIsShippable(config: ApiConfig): void {
+  if (__DEV__) return;
+
+  const problems: string[] = [];
+  if (!config.baseUrl.startsWith("https://")) {
+    problems.push(`API URL is not HTTPS (${new URL(config.baseUrl).protocol}//…)`);
+  }
+  if (!config.authUrl.startsWith("https://")) {
+    problems.push(`Auth URL is not HTTPS (${new URL(config.authUrl).protocol}//…)`);
+  }
+  if (config.environment === "development") {
+    problems.push('app environment is "development"');
+  }
+
+  if (problems.length > 0) {
+    throw new Error(
+      `This build is configured for development and cannot run as a release: ${problems.join("; ")}. ` +
+        "Rebuild with EXPO_PUBLIC_APP_ENV=production (or homelab).",
+    );
+  }
+}
+
+assertEnvironmentIsShippable(apiConfig);
+
 export function apiUrl(path: string): string {
   const base = apiConfig.baseUrl.replace(/\/+$/, "");
   const cleanPath = path.replace(/^\/+/, "");

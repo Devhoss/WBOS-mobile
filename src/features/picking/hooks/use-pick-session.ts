@@ -10,7 +10,6 @@ export function usePickSession(taskId: string) {
     queryFn: () => getPickSession(taskId),
     enabled: !!taskId,
     staleTime: 15 * 1000,
-    retry: 2,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === "SCHEDULED" ? 15 * 1000 : false;

@@ -6,6 +6,5 @@ export function useTodayWork() {
     queryKey: ["today-work"],
     queryFn: getTodayWork,
     staleTime: 60 * 1000,
-    retry: 2,
   });
 }

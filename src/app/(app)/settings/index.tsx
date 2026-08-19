@@ -5,6 +5,7 @@ import { useSettings, SettingsRow } from "@/features/settings";
 import { useAuthStore } from "@/infrastructure/auth/store";
 import { clearTokens } from "@/infrastructure/auth/token-storage";
 import { signOut } from "@/api/auth";
+import { clearCachedData } from "@/core/query-client";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -20,6 +21,8 @@ export default function SettingsScreen() {
     }
     await clearTokens();
     clear();
+    // Shared handsets: the next worker must not see this one's cached tasks.
+    clearCachedData();
     router.replace("/(auth)/sign-in");
   }
 
@@ -45,7 +48,7 @@ export default function SettingsScreen() {
               {user.role ? (
                 <View className="mt-2">
                   <Badge
-                    variant={user.role === "OWNER" || user.role === "ADMIN" ? "success" : "info"}
+                    variant={user.role === "OWNER" ? "success" : "info"}
                     label={user.role.replace("_", " ")}
                   />
                 </View>
@@ -76,14 +79,6 @@ export default function SettingsScreen() {
               type="toggle"
               value={settings.scannerSoundEnabled}
               onToggle={(v) => updateSettings({ scannerSoundEnabled: v })}
-            />
-            <Separator />
-            <SettingsRow
-              label="Auto-Confirm Quantity"
-              description="Skip quantity confirmation when it matches"
-              type="toggle"
-              value={settings.autoConfirmQuantity}
-              onToggle={(v) => updateSettings({ autoConfirmQuantity: v })}
             />
           </View>
         </View>
