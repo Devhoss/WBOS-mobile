@@ -6,6 +6,9 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // `*.rn.test.*` needs a React Native renderer and runs under Jest
+    // (see jest.config.js); Vitest keeps the fast pure and source tests.
+    exclude: ["**/node_modules/**", "src/**/*.rn.test.ts", "src/**/*.rn.test.tsx"],
   },
   resolve: {
     alias: {

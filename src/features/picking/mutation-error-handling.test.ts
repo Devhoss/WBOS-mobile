@@ -40,6 +40,7 @@ function handlerBody(source: string, name: string): string {
 }
 
 const PICKING_SCREEN = "app/(app)/picking/[id].tsx";
+const TASK_SCREEN = "app/(app)/tasks/[id].tsx";
 const SCAN_HOOK = "features/scanner/hooks/use-picking-scan.ts";
 
 const IMPORTANT_HANDLERS = [
@@ -132,5 +133,66 @@ describe("scan mutations report rejection", () => {
     for (const block of onErrorBlocks) {
       expect(block).toMatch(/flashFailure\(/);
     }
+  });
+});
+
+/**
+ * The guard above only ever read the picking screen, so the identical defect in
+ * the task detail screen — `handleStart` and `handleComplete` as bare
+ * `mutateAsync` calls with no `catch` — sat next to a passing suite. A hardcoded
+ * file list is a guard with a blind spot; these are the other screens that
+ * mutate.
+ */
+/**
+ * The guard above only ever read the picking screen, so the identical defect in
+ * the task detail screen -- `handleStart` and `handleComplete` as bare
+ * `mutateAsync` calls with no `catch` -- sat next to a passing suite. A
+ * hardcoded file list is a guard with a blind spot; these are the other screens
+ * that mutate.
+ */
+describe("task detail mutations never fail silently", () => {
+  const screen = read(TASK_SCREEN);
+
+  describe.each(["handleStart", "handleComplete"])("%s", (name) => {
+    const body = handlerBody(screen, name);
+
+    it("catches its failure", () => {
+      expect(body).toMatch(/\bcatch\s*\(/);
+    });
+
+    it("tells the user, through the shared message extractor", () => {
+      expect(body).toMatch(/showToast\(/);
+      expect(body).toMatch(/toUserMessage\(/);
+      expect(body).toMatch(/"error"\s*\)/);
+    });
+  });
+
+  it("does not congratulate the user on a completion the server refused", () => {
+    // playSuccessSound() ran unconditionally after the await. Once the await is
+    // wrapped, the catch has to stop rather than fall through to the sound.
+    const body = handlerBody(screen, "handleComplete");
+    const catchIndex = body.indexOf("catch");
+    const soundIndex = body.indexOf("playSuccessSound()");
+    expect(catchIndex).toBeGreaterThan(-1);
+    expect(soundIndex).toBeGreaterThan(catchIndex);
+    expect(body.slice(catchIndex, soundIndex)).toMatch(/return;/);
+  });
+});
+
+describe("a raised toast has something to render it", () => {
+  const screen = read(PICKING_SCREEN);
+
+  it("mounts a Toast inside the scanner branch as well as the summary branch", () => {
+    // handleCompleteTask puts the scanner back when the server refuses, then
+    // raises a toast. The only <Toast> lived in the summary branch, which that
+    // render path returns before reaching -- so the message went nowhere. Every
+    // handler-level guard above passed while the user saw nothing.
+    const open = screen.search(/<ScannerErrorBoundary[\s>]/);
+    const close = screen.indexOf("</ScannerErrorBoundary>");
+    expect(open).toBeGreaterThan(-1);
+    expect(close).toBeGreaterThan(open);
+
+    expect(screen.slice(open, close)).toMatch(/<Toast\s/);
+    expect(screen.slice(close)).toMatch(/<Toast\s/);
   });
 });
