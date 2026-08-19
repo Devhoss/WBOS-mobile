@@ -43,9 +43,14 @@ export function Toast({
         duration: 200,
         useNativeDriver: true,
       }),
-    ]).start(() => onHide());
+    ]).start(({ finished }) => {
+      // A new message restarts the sequence, which cancels this one. Only the
+      // run that actually completed should hide the toast -- otherwise the
+      // second message vanished with the first one's remaining time.
+      if (finished) onHide();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible, message]);
 
   if (!visible || !message) return null;
 

@@ -28,3 +28,18 @@ export async function uploadSignedInvoice(
 export async function removeSignedInvoice(salesOrderId: string): Promise<void> {
   await client.delete(apiUrl(`/sales/signed-invoice/${salesOrderId}`));
 }
+
+/**
+ * A short-lived URL for a signed proof of delivery.
+ *
+ * `Linking.openURL` hands the URL to the system browser, which carries neither
+ * the Bearer token nor a session cookie. Building the URL by hand only worked
+ * while these documents were served from the web app's public directory with no
+ * authentication — which was the bug. Same pattern as invoice PDFs.
+ */
+export async function getSignedInvoiceDownloadUrl(salesOrderId: string): Promise<string> {
+  const response = await client.post<{ url: string; expiresIn: number }>(
+    apiUrl(`/sales/signed-invoice/${salesOrderId}/download-token`),
+  );
+  return response.data.url;
+}

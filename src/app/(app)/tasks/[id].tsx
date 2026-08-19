@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useTaskDetail, useStartTask, useCompleteTask, TaskStatusBadge, taskTypeConfig, taskPriorityBadges } from "@/features/tasks";
 import { SafeArea, Header, Card, Separator, Loading, Badge, Toast, useToast } from "@/design-system";
 import { formatDateTime, formatAvailability } from "@/shared/utils/format";
+import { toUserMessage } from "@/shared/errors/user-message";
 import { playSuccessSound } from "@/shared/utils/sound";
 import type { TaskStatus } from "@/api/tasks/types";
 
@@ -44,7 +45,7 @@ export default function TaskDetailScreen() {
             Failed to Load
           </Text>
           <Text className="text-muted-foreground text-center">
-            {error instanceof Error ? error.message : "An unexpected error occurred."}
+            {toUserMessage(error, "Could not load this task. Pull down to refresh.")}
           </Text>
         </View>
       </SafeArea>
@@ -77,12 +78,28 @@ export default function TaskDetailScreen() {
   const completedLines = t.lines?.filter((l) => l.status === "COMPLETED" || l.completedQuantity > 0).length ?? 0;
   const progressPercent = totalLines > 0 ? Math.round((completedLines / totalLines) * 100) : 0;
 
+  /**
+   * The picking screen learned to report its failures; this screen did not.
+   * Both handlers were bare `mutateAsync` calls, so a rejection became an
+   * unhandled promise and the only thing the worker saw was the button label
+   * changing back — indistinguishable from a task that had started.
+   */
   async function handleStart() {
-    await startMutation.mutateAsync({ id: t.id, updatedAt: t.updatedAt });
+    try {
+      await startMutation.mutateAsync({ id: t.id, updatedAt: t.updatedAt });
+    } catch (err) {
+      showToast(toUserMessage(err, "Could not start this task. Try again."), "error");
+    }
   }
 
   async function handleComplete() {
-    await completeMutation.mutateAsync({ id: t.id, updatedAt: t.updatedAt });
+    try {
+      await completeMutation.mutateAsync({ id: t.id, updatedAt: t.updatedAt });
+    } catch (err) {
+      showToast(toUserMessage(err, "Could not complete this task. Try again."), "error");
+      return;
+    }
+    // Only after the server has accepted it.
     playSuccessSound();
   }
 

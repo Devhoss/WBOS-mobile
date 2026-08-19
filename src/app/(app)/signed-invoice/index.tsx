@@ -16,6 +16,7 @@ import {
   getDeliveredSalesOrders,
   uploadSignedInvoice,
   removeSignedInvoice,
+  getSignedInvoiceDownloadUrl,
 } from "@/api/sales";
 import type { DeliveredSalesOrder } from "@/api/sales/types";
 import {
@@ -25,8 +26,8 @@ import {
   EmptyState,
   Toast,
 } from "@/design-system";
-import { apiConfig } from "@/infrastructure/api/config";
 import { formatDateTime } from "@/shared/utils/format";
+import { toUserMessage } from "@/shared/errors/user-message";
 
 export default function SignedInvoiceScreen() {
   const insets = useSafeAreaInsets();
@@ -51,8 +52,8 @@ export default function SignedInvoiceScreen() {
     try {
       const data = await getDeliveredSalesOrders();
       setOrders(data);
-    } catch {
-      showToast("Failed to load sales orders.");
+    } catch (err) {
+      showToast(toUserMessage(err, "Could not load sales orders."));
     } finally {
       setLoading(false);
     }
@@ -84,8 +85,8 @@ export default function SignedInvoiceScreen() {
 
       showToast("Signed invoice uploaded.");
       loadOrders();
-    } catch {
-      showToast("Upload failed. Please try again.");
+    } catch (err) {
+      showToast(toUserMessage(err, "Upload failed. Please try again."));
     } finally {
       setUploadingId(null);
     }
@@ -111,16 +112,20 @@ export default function SignedInvoiceScreen() {
 
       showToast("Signed invoice uploaded.");
       loadOrders();
-    } catch {
-      showToast("Upload failed. Please try again.");
+    } catch (err) {
+      showToast(toUserMessage(err, "Upload failed. Please try again."));
     } finally {
       setUploadingId(null);
     }
   }
 
-  function handleView(signedInvoicePath: string) {
-    const url = `${apiConfig.baseUrl.replace(/\/+$/, "")}${signedInvoicePath}`;
-    Linking.openURL(url);
+  async function handleView(salesOrderId: string) {
+    try {
+      const url = await getSignedInvoiceDownloadUrl(salesOrderId);
+      await Linking.openURL(url);
+    } catch (err) {
+      showToast(toUserMessage(err, "Could not open this signed invoice. Try again."));
+    }
   }
 
   function handleRemove(soId: string) {
@@ -186,7 +191,7 @@ export default function SignedInvoiceScreen() {
                       ) : (
                         <>
                           <TouchableOpacity
-                            onPress={() => handleView(order.signedInvoicePath!)}
+                            onPress={() => handleView(order.id)}
                             className="bg-primary px-4 py-1.5 rounded-lg min-w-[90px] items-center"
                           >
                             <Text className="text-white text-sm font-semibold">

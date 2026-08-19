@@ -10,6 +10,7 @@ import { getStoredUser, getTokens } from "@/infrastructure/auth/token-storage";
 import { unregisterDeviceToken } from "@/api/device-tokens";
 import { usePushNotifications } from "@/features/notifications/hooks/use-push-notifications";
 import { initSounds } from "@/shared/utils/sound";
+import { notificationRoute } from "@/features/notifications/notification-route";
 import "./globals.css";
 
 SplashScreen.preventAutoHideAsync();
@@ -20,13 +21,9 @@ function useNotificationNavigation() {
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data;
-      const { entityType, entityId } = data as Record<string, string | undefined>;
-      if (!entityType || !entityId) return;
+      const { type, entityType, entityId } = data as Record<string, string | undefined>;
 
-      let route: string | null = null;
-      if (entityType === "task" || entityType === "shipment") {
-        route = `/(app)/picking/${entityId}`;
-      }
+      const route = notificationRoute({ type, entityType, entityId });
       if (route) {
         setTimeout(() => router.push(route as any), 300);
       }

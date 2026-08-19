@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, type MutableRefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { PickLineDetail, PickSession } from "@/api/picking/types";
+import type { PickSession } from "@/api/picking/types";
 import { useConfirmPickLine, useSubmitPickScanAction } from "@/features/picking";
 import { useSettings } from "@/features/settings";
 import { playSuccessSound, playErrorSound } from "@/shared/utils/sound";
@@ -27,6 +27,8 @@ export interface PickingScanState {
 }
 
 export interface UndoEntry {
+  /** Identity, so a failure removes its own entry and not the newest one. */
+  id: string;
   lineId: string;
   previousQuantity: number;
 }
@@ -79,7 +81,7 @@ export function usePickingScan(
   const undoStackRef = useRef<UndoEntry[]>([]);
   const processingLines = useRef<Set<string>>(new Set());
 
-  function playFeedback(variant: "success" | "error") {
+  const playFeedback = useCallback((variant: "success" | "error") => {
     if (settings.scannerSoundEnabled) {
       if (variant === "success") playSuccessSound();
       else playErrorSound();
@@ -91,7 +93,7 @@ export function usePickingScan(
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
     }
-  }
+  }, [settings]);
 
   /**
    * Report a mutation that the server refused or never received.
@@ -104,6 +106,19 @@ export function usePickingScan(
    * This reuses the existing error-flash affordance rather than adding a second
    * vocabulary for failure.
    */
+  /**
+   * Remove one entry by identity.
+   *
+   * Both error handlers called `pop()`, which removes the most recent entry --
+   * not necessarily the one this mutation pushed. A scan that failed slowly
+   * (up to 30s while mutations retried) would discard the undo record of a
+   * later successful pick, so Undo then reverted to a stale quantity.
+   */
+  const dropUndoEntry = useCallback((entry: UndoEntry) => {
+    undoStackRef.current = undoStackRef.current.filter((e) => e.id !== entry.id);
+    setUndoStack([...undoStackRef.current]);
+  }, []);
+
   const flashFailure = useCallback(
     (lineId: string, error: unknown, fallback: string) => {
       playFeedback("error");
@@ -112,11 +127,11 @@ export function usePickingScan(
       setFlashText(toUserMessage(error, fallback));
       setTimeout(() => setFlashLineId(null), 2000);
     },
-    [],
+    [playFeedback],
   );
 
   const handleScan = useCallback(
-    async (barcode: string, scanId?: number) => {
+    async (barcode: string, _scanId?: number) => {
       const currentSession = queryClient.getQueryData<PickSession>(["pick-session", taskId]);
       if (!currentSession) return;
 
@@ -146,7 +161,18 @@ export function usePickingScan(
       }
 
       const remaining = pendingLine.quantityOrdered - picked;
-      if (remaining <= 0) return;
+      if (remaining <= 0) {
+        // A scan that changes nothing and says nothing reads as a dead scanner.
+        // This is reachable whenever the line is full but the server has not
+        // marked it COMPLETED, so it is still the pending line -- exactly the
+        // state the frozen-at-100% report described.
+        flashFailure(
+          pendingLine.id,
+          null,
+          `${pendingLine.productName} is already fully picked. Pull down to refresh.`,
+        );
+        return;
+      }
 
       if (scanMode === "quantity") {
         playFeedback("success");
@@ -166,10 +192,12 @@ export function usePickingScan(
       onPick?.();
       playFeedback("success");
 
-      undoStackRef.current.push({
+      const undoEntry: UndoEntry = {
+        id: createClientEventId(),
         lineId: pendingLine.id,
         previousQuantity: pendingLine.quantityPicked,
-      });
+      };
+      undoStackRef.current.push(undoEntry);
       scanLog("undo:push", {
         lineId: pendingLine.id,
         previousQuantity: pendingLine.quantityPicked,
@@ -200,8 +228,7 @@ export function usePickingScan(
               error,
               stackLengthBeforePop: undoStackRef.current.length,
             });
-            undoStackRef.current.pop();
-            setUndoStack([...undoStackRef.current]);
+            dropUndoEntry(undoEntry);
             // Overwrites the optimistic green flash set below, so a refused
             // pick can never be mistaken for an accepted one.
             flashFailure(pendingLine.id, error, "That pick was not saved. Try again.");
@@ -217,7 +244,7 @@ export function usePickingScan(
       setFlashText(`✓ ${pendingLine.productName}`);
       setTimeout(() => setFlashLineId(null), 500);
     },
-    [pickActionMutation, onPick, scanMode, settings, consumeBarcodeRef, queryClient, taskId, flashFailure],
+    [pickActionMutation, onPick, scanMode, playFeedback, consumeBarcodeRef, queryClient, taskId, flashFailure, dropUndoEntry],
   );
 
   const submitBulkQuantity = useCallback((quantity: number) => {
@@ -226,16 +253,32 @@ export function usePickingScan(
 
     processingLines.current.add(pendingBulkLine.lineId);
 
-    const addQty = Math.max(0, quantity);
-    const targetQty = Math.min(pendingBulkLine.currentQty + addQty, pendingBulkLine.maxQty);
+    // Clamp, then report the clamped figure. Entering 50 against a line of 10
+    // used to flash "+50  (10 total)", which is two contradictory numbers.
+    const room = Math.max(0, pendingBulkLine.maxQty - pendingBulkLine.currentQty);
+    const addQty = Math.min(Math.max(0, quantity), room);
+    const targetQty = pendingBulkLine.currentQty + addQty;
+
+    if (addQty === 0) {
+      flashFailure(
+        pendingBulkLine.lineId,
+        null,
+        `${pendingBulkLine.productName} is already fully picked.`,
+      );
+      setPendingBulkLine(null);
+      processingLines.current.delete(pendingBulkLine.lineId);
+      return;
+    }
 
     onPick?.();
     playFeedback("success");
 
-    undoStackRef.current.push({
+    const undoEntry: UndoEntry = {
+      id: createClientEventId(),
       lineId: pendingBulkLine.lineId,
       previousQuantity: pendingBulkLine.currentQty,
-    });
+    };
+    undoStackRef.current.push(undoEntry);
     scanLog("undo:pushBulk", {
       lineId: pendingBulkLine.lineId,
       previousQuantity: pendingBulkLine.currentQty,
@@ -255,8 +298,7 @@ export function usePickingScan(
       { lineId, quantity: targetQty },
       {
         onError: (error) => {
-          undoStackRef.current.pop();
-          setUndoStack([...undoStackRef.current]);
+          dropUndoEntry(undoEntry);
           flashFailure(lineId, error, "That quantity was not saved. Try again.");
         },
         onSettled: () => {
@@ -264,7 +306,7 @@ export function usePickingScan(
         },
       },
     );
-  }, [pendingBulkLine, confirmMutation, onPick, settings, flashFailure]);
+  }, [pendingBulkLine, confirmMutation, onPick, playFeedback, flashFailure, dropUndoEntry]);
 
   const cancelBulkQuantity = useCallback(() => {
     setPendingBulkLine(null);
@@ -289,15 +331,15 @@ export function usePickingScan(
       });
       return;
     }
-    entries.pop();
+    // Undo deliberately targets the newest entry -- that is what "undo" means
+    // here -- but removal goes through the same identity-based path.
+    dropUndoEntry(last);
     scanLog("undo:popped", {
       lineId: last.lineId,
       previousQuantity: last.previousQuantity,
-      stackLengthAfterPop: entries.length,
+      stackLengthAfterPop: undoStackRef.current.length,
       isProcessing: false,
     });
-    undoStackRef.current = entries;
-    setUndoStack([...entries]);
     setFlashLineId(null);
     setErrorBarcode(null);
     processingLines.current.add(last.lineId);
@@ -318,7 +360,7 @@ export function usePickingScan(
         },
       },
     );
-  }, [confirmMutation, flashFailure]);
+  }, [confirmMutation, flashFailure, dropUndoEntry]);
 
   const showGreenFlash = useCallback(() => {
     setFlashLineId("__overlay__");

@@ -13,7 +13,8 @@ import { Input } from "@/design-system";
 import { Button } from "@/design-system";
 import { signIn } from "@/api/auth";
 import { useAuthStore } from "@/infrastructure/auth/store";
-import { setTokens, setStoredUser } from "@/infrastructure/auth/token-storage";
+import { setTokens, setStoredUser, clearTokens } from "@/infrastructure/auth/token-storage";
+import { toUserMessage } from "@/shared/errors/user-message";
 import client from "@/infrastructure/api/client";
 import { apiUrl } from "@/infrastructure/api/config";
 
@@ -69,8 +70,12 @@ export default function SignInScreen() {
         if (me.warehouses.length === 1) {
           warehouseId = me.warehouses[0].id;
         }
-      } catch {
-        // Proceed with basic user info if org context fetch fails
+      } catch (meErr) {
+        // Signing in without organization context produced a user with an
+        // empty role and no warehouse, who then found half the app quietly
+        // broken. Better to fail the sign-in and say so.
+        await clearTokens();
+        throw meErr;
       }
 
       const user = {
@@ -87,22 +92,10 @@ export default function SignInScreen() {
       queryClient.invalidateQueries();
       router.replace("/(app)/(home)");
     } catch (err: unknown) {
-      const axiosErr = err as Record<string, unknown>;
-
-      let message = "Sign in failed. Try again.";
-      if (axiosErr.response) {
-        const r = axiosErr.response as {
-          status?: number;
-          data?: { error?: string; message?: string };
-        };
-        const status = r.status;
-        const serverMsg = r.data?.error ?? r.data?.message;
-        if (serverMsg) message = `${serverMsg} (${status})`;
-        else if (status) message = `Server returned ${status}`;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
-      setError(message);
+      // Was a bespoke formatter that appended the HTTP status to the message
+      // ("Invalid email or password (401)") and otherwise fell back to the raw
+      // Error text.
+      setError(toUserMessage(err, "Sign in failed. Check your details and try again."));
     } finally {
       setLoading(false);
     }

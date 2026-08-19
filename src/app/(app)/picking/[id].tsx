@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, Component } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -19,9 +19,16 @@ import { useStartTask, useCompleteTask } from "@/features/tasks";
 import { updateShipmentStatus, deliverShipment, updateWarehouseNotes } from "@/api/shipments";
 import { getInvoiceDownloadUrl } from "@/api/invoices";
 import { useQueryClient } from "@tanstack/react-query";
-import { WBOSScanner, usePickingScan, useBarcodePresence, type ScanMode } from "@/features/scanner";
+import {
+  WBOSScanner,
+  usePickingScan,
+  useBarcodePresence,
+  ScannerErrorBoundary,
+  type ScanMode,
+} from "@/features/scanner";
 import { SafeArea, Header, Card, Loading, Badge, Toast, useToast } from "@/design-system";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNetwork } from "@/infrastructure/network/use-network";
 import { formatAvailability } from "@/shared/utils/format";
 import { toUserMessage } from "@/shared/errors/user-message";
 
@@ -45,6 +52,9 @@ export default function PickingScreen() {
   const successOverlayOpacity = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
   const { toast, showToast, hideToast } = useToast();
+  // No offline queue exists, so a write attempted with no connection is
+  // simply lost. Refuse it up front instead of failing after a timeout.
+  const { isConnected } = useNetwork();
   const prevStatusRef = useRef<string | null>(null);
 
   const consumeBarcodeRef = useRef<(barcode: string) => void>((_b: string) => {});
@@ -83,11 +93,24 @@ export default function PickingScreen() {
     if (pendingBulkLine) setBulkQtyText(String(pendingBulkLine.maxQty));
   }, [pendingBulkLine]);
 
+  /**
+   * Open the scanner once, when an in-progress pick first loads.
+   *
+   * This had an empty dependency array, so it ran after the first render --
+   * when the query was still loading and `session` was undefined. It therefore
+   * only ever fired if the pick session happened to be cached already, which
+   * made arriving from a notification behave differently from arriving from
+   * Home. (The `session?.status` short-circuit was also the only thing keeping
+   * it from reading `allPicked` before its declaration.)
+   */
+  const autoOpenedRef = useRef(false);
   useEffect(() => {
-    if (session?.status === "IN_PROGRESS" && !allPicked) {
-      setShowScanner(true);
-    }
-  }, []);
+    if (autoOpenedRef.current) return;
+    if (session?.status !== "IN_PROGRESS") return;
+    autoOpenedRef.current = true;
+    const everyLineFull = session.lines.every((l) => l.quantityPicked >= l.quantityOrdered);
+    if (!everyLineFull) setShowScanner(true);
+  }, [session]);
 
   useEffect(() => {
     const status = session?.status;
@@ -209,7 +232,7 @@ export default function PickingScreen() {
             Failed to Load
           </Text>
           <Text className="text-muted-foreground text-center">
-            {error instanceof Error ? error.message : "An unexpected error occurred."}
+            {toUserMessage(error, "Could not load this pick order. Pull down to refresh.")}
           </Text>
         </View>
       </SafeArea>
@@ -294,7 +317,7 @@ export default function PickingScreen() {
       : null;
 
     return (
-      <ScannerErrorBoundary>
+      <ScannerErrorBoundary onDismiss={handleCancelScan}>
       <View className="flex-1 bg-black">
 
         {/* Green success overlay flash */}
@@ -612,6 +635,17 @@ export default function PickingScreen() {
             </View>
           </View>
         ) : null}
+
+        {/* The summary branch mounts its own Toast further down and returns
+            before reaching this one, so failures raised while the scanner is
+            open — a rejected Complete puts the scanner back — need a Toast on
+            this path too, or the message is written to nothing. */}
+        <Toast
+          message={toast.message}
+          variant={toast.variant}
+          visible={toast.visible}
+          onHide={hideToast}
+        />
       </View>
       </ScannerErrorBoundary>
     );
@@ -620,6 +654,13 @@ export default function PickingScreen() {
   return (
     <SafeArea>
       <Header title={`Pick: ${session.orderNumber}`} showBack />
+      {!isConnected ? (
+        <View className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2 mx-4 mt-2">
+          <Text className="text-yellow-500 text-sm text-center">
+            No connection — picking actions are paused until you're back online
+          </Text>
+        </View>
+      ) : null}
       <ScrollView className="flex-1 p-4">
         <Card className="mb-4">
           <View className="flex-row items-center">
@@ -700,7 +741,7 @@ export default function PickingScreen() {
                 <View className="flex-row gap-2">
                   <TouchableOpacity
                     onPress={handleSaveWarehouseNotes}
-                    disabled={savingNotes}
+                    disabled={savingNotes || !isConnected}
                     className="flex-1 bg-primary py-2 rounded-lg items-center"
                   >
                     <Text className="text-white font-semibold text-sm">
@@ -742,7 +783,7 @@ export default function PickingScreen() {
         ) : !isStarted ? (
           <TouchableOpacity
             onPress={handleStartPicking}
-            disabled={startTaskMutation.isPending}
+            disabled={startTaskMutation.isPending || !isConnected}
             className="bg-primary py-4 rounded-xl items-center mb-4 min-h-[52px] justify-center"
           >
             <Text className="text-white font-bold text-lg">
@@ -812,7 +853,7 @@ export default function PickingScreen() {
 
             <TouchableOpacity
               onPress={handleCompleteTask}
-              disabled={completeTaskMutation.isPending}
+              disabled={completeTaskMutation.isPending || !isConnected}
               className="bg-green-600 py-4 rounded-xl items-center mb-3 min-h-[52px] justify-center"
             >
               <Text className="text-white font-bold text-lg">
@@ -848,7 +889,7 @@ export default function PickingScreen() {
             </View>
             <TouchableOpacity
               onPress={handleMarkLoaded}
-              disabled={markingLoaded}
+              disabled={markingLoaded || !isConnected}
               className="bg-primary py-4 rounded-xl items-center min-h-[52px] justify-center"
             >
               <Text className="text-white font-bold text-lg">
@@ -875,7 +916,7 @@ export default function PickingScreen() {
             </View>
             <TouchableOpacity
               onPress={handleDeliver}
-              disabled={delivering}
+              disabled={delivering || !isConnected}
               className="bg-emerald-600 py-4 rounded-xl items-center min-h-[52px] justify-center"
             >
               <Text className="text-white font-bold text-lg">
@@ -933,35 +974,6 @@ export default function PickingScreen() {
       />
     </SafeArea>
   );
-}
-
-class ScannerErrorBoundary extends Component<
-  { children: React.ReactNode },
-  { hasError: boolean; error: Error | null }
-> {
-  state = { hasError: false, error: null };
-
-  static getDerivedStateFromError(error: Error) {
-    console.error("[ScannerErrorBoundary] Caught:", error.message, error.stack);
-    return { hasError: true, error: error as Error };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      const err = this.state.error as Error | null;
-      return (
-        <View className="flex-1 bg-black items-center justify-center p-6">
-          <Text className="text-white/60 text-sm text-center mb-2">
-            Scanner Error: {err?.message}
-          </Text>
-          <Text className="text-white/40 text-xs text-center font-mono">
-            {err?.stack?.split("\n").slice(0, 3).join("\n")}
-          </Text>
-        </View>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 const StyleSheet = {

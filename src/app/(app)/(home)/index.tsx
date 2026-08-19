@@ -92,8 +92,10 @@ export default function HomeScreen() {
     >
       {!isConnected ? (
         <View className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2 mx-4 mt-2">
+          {/* There is no offline queue. Saying otherwise told a driver in a
+              dead spot that a Confirm Delivery would be handled later. */}
           <Text className="text-yellow-500 text-sm text-center">
-            You're offline — changes will sync when connected
+            No connection — you can view your work, but nothing will save until you're back online
           </Text>
         </View>
       ) : null}

@@ -17,26 +17,13 @@ export async function getShipment(id: string): Promise<Shipment> {
   return response.data.data;
 }
 
-export async function updateShipmentStatus(
-  id: string,
-  status: string
-): Promise<Shipment> {
-  const response = await client.patch<ApiResponse<Shipment>>(
-    apiUrl(`/shipments/${id}/status`),
-    { status }
-  );
-  return response.data.data;
-}
-
-export async function confirmDelivery(
-  id: string,
-  confirmation: DeliveryConfirmation
-): Promise<Shipment> {
-  const response = await client.post<ApiResponse<Shipment>>(
-    apiUrl(`/shipments/${id}/deliver`),
-    confirmation
-  );
-  return response.data.data;
+/**
+ * The route answers `{ ok: true }`, not the shipment. This used to be typed as
+ * `Promise<Shipment>` returning `response.data.data`, which was `undefined` at
+ * runtime while TypeScript reported a `Shipment`.
+ */
+export async function updateShipmentStatus(id: string, status: string): Promise<void> {
+  await client.patch(apiUrl(`/shipments/${id}/status`), { status });
 }
 
 export async function deliverShipment(id: string): Promise<void> {

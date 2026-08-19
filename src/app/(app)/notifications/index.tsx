@@ -5,13 +5,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { useNotifications } from "@/features/notifications";
-import { SafeArea, Header, EmptyState } from "@/design-system";
+import { SafeArea, Header, EmptyState, Toast } from "@/design-system";
 import { formatDateTime } from "@/shared/utils/format";
+import { notificationRoute } from "@/features/notifications/notification-route";
 
 const typeIcons: Record<string, string> = {
   TASK_ASSIGNED: "📦",
@@ -29,10 +31,14 @@ export default function NotificationsScreen() {
     notifications,
     readCount,
     isLoading,
+    isRefreshing,
+    actionError,
+    dismissActionError,
     markAsRead,
     markAllRead,
     clearRead,
     deleteOne,
+    refresh,
   } = useNotifications();
 
   function handleDelete(id: string) {
@@ -78,7 +84,12 @@ export default function NotificationsScreen() {
           ) : undefined
         }
       />
-      <ScrollView className="flex-1 p-4">
+      <ScrollView
+        className="flex-1 p-4"
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor="#3B82F6" />
+        }
+      >
         {isLoading ? (
           <View className="flex-1 items-center justify-center py-20">
             <ActivityIndicator size="large" />
@@ -95,9 +106,8 @@ export default function NotificationsScreen() {
               key={n.id}
               onPress={async () => {
                 await markAsRead(n.id);
-                if (n.link) {
-                  router.push(`/(app)/picking/${n.link}` as any);
-                }
+                const route = notificationRoute({ type: n.type, link: n.link });
+                if (route) router.push(route as any);
               }}
               onLongPress={() => handleDelete(n.id)}
               className={`mb-2 rounded-xl border p-4 ${n.isRead ? "border-zinc-800/50 bg-zinc-900/30" : "border-primary/30 bg-primary/5"}`}
@@ -130,6 +140,12 @@ export default function NotificationsScreen() {
         )}
         <View style={{ height: insets.bottom + 20 }} />
       </ScrollView>
+      <Toast
+        message={actionError ?? ""}
+        variant="error"
+        visible={!!actionError}
+        onHide={dismissActionError}
+      />
     </SafeArea>
   );
 }

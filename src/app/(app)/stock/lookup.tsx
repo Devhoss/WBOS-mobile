@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeArea, Header, Loading } from "@/design-system";
+import { toUserMessage } from "@/shared/errors/user-message";
 import { useAuthStore } from "@/infrastructure/auth/store";
 import { useStockLookupByBarcode, StockItem } from "@/features/stock";
 import { getWarehouses } from "@/api/warehouses";
@@ -32,6 +33,7 @@ export default function StockLookupScreen() {
   const [warehouseId, setWarehouseId] = useState(user?.warehouseId ?? "");
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loadingWarehouses, setLoadingWarehouses] = useState(false);
+  const [warehouseError, setWarehouseError] = useState<string | null>(null);
 
   const { data: result, isLoading, isError, error } = useStockLookupByBarcode(
     warehouseId ? searchBarcode : null,
@@ -48,10 +50,15 @@ export default function StockLookupScreen() {
   useEffect(() => {
     if (!user?.warehouseId) {
       setLoadingWarehouses(true);
+      setWarehouseError(null);
       getWarehouses().then((list) => {
         setWarehouses(list);
         if (list.length === 1) setWarehouseId(list[0].id);
-      }).catch(() => {}).finally(() => setLoadingWarehouses(false));
+      }).catch((err) => {
+        // Swallowing this dropped the user onto a search box that could never
+        // search, with nothing on screen to say why.
+        setWarehouseError(toUserMessage(err, "Could not load warehouses. Pull down to retry."));
+      }).finally(() => setLoadingWarehouses(false));
     }
   }, [user?.warehouseId]);
 
@@ -68,6 +75,23 @@ export default function StockLookupScreen() {
           <Header title="Stock Lookup" showBack />
           <View className="flex-1 items-center justify-center p-6">
             <Loading message="Loading warehouses..." />
+          </View>
+        </SafeArea>
+      );
+    }
+    if (warehouseError || warehouses.length === 0) {
+      return (
+        <SafeArea>
+          <Header title="Stock Lookup" showBack />
+          <View className="flex-1 items-center justify-center p-6">
+            <Text className="text-4xl mb-4">🏭</Text>
+            <Text className="text-lg font-semibold text-foreground mb-2">
+              No Warehouse Available
+            </Text>
+            <Text className="text-muted-foreground text-center">
+              {warehouseError ??
+                "Stock lookup needs a warehouse, and none is assigned to your account. Ask the office to assign one."}
+            </Text>
           </View>
         </SafeArea>
       );
@@ -152,7 +176,7 @@ export default function StockLookupScreen() {
           <View className="items-center py-12">
             <Text className="text-4xl mb-3">⚠️</Text>
             <Text className="text-muted-foreground text-center">
-              {error instanceof Error ? error.message : "Failed to look up stock. Try again."}
+              {toUserMessage(error, "Could not look up stock. Try again.")}
             </Text>
           </View>
         ) : (
