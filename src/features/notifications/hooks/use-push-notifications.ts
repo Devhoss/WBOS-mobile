@@ -27,6 +27,17 @@ function maskToken(token: string): string {
   return `${token.slice(0, 8)}...${token.slice(-4)} (${token.length} chars)`;
 }
 
+/**
+ * Push setup is chatty by nature, and the detail it prints — user id, device
+ * name, token prefix — is diagnostic only. Gated so none of it reaches a
+ * production log, and kept at `log` level so it cannot raise LogBox over the UI.
+ */
+function pushLog(message: string) {
+  if (__DEV__) {
+    console.log(`[push] ${message}`);
+  }
+}
+
 export function usePushNotifications() {
   const user = useAuthStore((s) => s.user);
   const status = useAuthStore((s) => s.status);
@@ -39,9 +50,9 @@ export function usePushNotifications() {
 
     async function setup() {
       const { status: permStatus } = await Notifications.requestPermissionsAsync();
-      console.info(`[push] Permission status: ${permStatus}`);
+      pushLog(`Permission status: ${permStatus}`);
       if (permStatus !== "granted") {
-        console.warn("[push] Notification permission not granted — push disabled");
+        pushLog("Notification permission not granted — push disabled");
         return;
       }
 
@@ -63,19 +74,19 @@ export function usePushNotifications() {
         tokenRef.current = token;
 
         const platform = Platform.OS === "android" ? "ANDROID" : "IOS";
-        console.info(`[push] Retrieved device push token ${maskToken(token)} (${platform})`);
-        console.info(
-          `[push] Registering device token (user=${currentUserId}, platform=${platform}, device=${getDeviceName() ?? "unknown"}, appVersion=${getAppVersion() ?? "unknown"})`,
+        pushLog(`Retrieved device push token ${maskToken(token)} (${platform})`);
+        pushLog(
+          `Registering device token (user=${currentUserId}, platform=${platform}, device=${getDeviceName() ?? "unknown"}, appVersion=${getAppVersion() ?? "unknown"})`,
         );
 
         try {
           const httpStatus = await registerDeviceToken(token, platform, getDeviceName(), getAppVersion());
-          console.info(`[push] Device token registered successfully (HTTP ${httpStatus})`);
+          pushLog(`Device token registered successfully (HTTP ${httpStatus})`);
         } catch (err) {
           const axiosErr = err as { response?: { status?: number } };
           const status = axiosErr.response?.status;
           if (status === 401) {
-            console.warn("[push] Device token registration rejected (session expired) — handled by sign-in flow");
+            pushLog("Device token registration rejected (session expired) — handled by sign-in flow");
             return;
           }
           console.error(

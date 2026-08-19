@@ -80,13 +80,18 @@ export default function RootLayout() {
               if (devicePushToken?.data) {
                 try {
                   const httpStatus = await unregisterDeviceToken(devicePushToken.data);
-                  console.info(`[push] Device token unregistered (HTTP ${httpStatus})`);
+                  if (__DEV__) console.log(`[push] Device token unregistered (HTTP ${httpStatus})`);
                 } catch (err) {
+                  // Best-effort, as the outer catch says: the token is already
+                  // invalid to the server once the session ends, so a failure
+                  // here changes nothing the user can act on.
                   const axiosErr = err as { response?: { status?: number } };
-                  console.warn(
-                    `[push] Device token unregister failed${axiosErr.response?.status ? ` (HTTP ${axiosErr.response.status})` : ""}`,
-                    err,
-                  );
+                  if (__DEV__) {
+                    console.log(
+                      `[push] Device token unregister failed${axiosErr.response?.status ? ` (HTTP ${axiosErr.response.status})` : ""}`,
+                      err,
+                    );
+                  }
                 }
               }
             }

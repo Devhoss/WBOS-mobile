@@ -50,8 +50,24 @@ function isHtml(response: AxiosResponse): boolean {
   return typeof response.data === "string" && response.data.trimStart().startsWith("<");
 }
 
+/**
+ * One expired session is one event, however many requests discover it.
+ *
+ * The app fires several queries at once on launch, so a stale token produced
+ * five separate 401s — and each one independently cleared the store, wiped the
+ * query cache and logged a warning. The repeated cache clears raced the
+ * sign-in screen's own state, and five warnings were enough to raise React
+ * Native's LogBox over the UI on every cold start with a stale token.
+ *
+ * The guard is the auth state itself rather than a separate flag: already
+ * signed out means there is nothing left to do. Nothing has to remember to
+ * reset it — signing in sets the status back, so the next expiry is reported
+ * again — and there is no module-level latch to leak between tests or to drift
+ * out of step with what the app actually believes.
+ */
 function signOutForExpiredSession() {
   const store = useAuthStore.getState();
+  if (store.status === "unauthenticated") return;
   store.setAuthMessage("Your session has expired. Please sign in again.");
   store.clear();
   // Otherwise the next person to sign in on this handset sees the last one's
@@ -90,9 +106,9 @@ client.interceptors.response.use(
     const isRedirect = typeof status === "number" && status >= 300 && status < 400;
 
     if (status === 401 || isRedirect) {
-      console.warn(
-        `[api] Received ${status} — session expired or invalid; signing out.`
-      );
+      // Not logged: an expired session is an ordinary, expected outcome that
+      // the UI already reports. Warning about it on every in-flight request
+      // buried the warnings that do mean something.
       await clearTokens();
       signOutForExpiredSession();
     }

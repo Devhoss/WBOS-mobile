@@ -131,4 +131,39 @@ describe("error statuses that mean the session is gone", () => {
     await expect(runFailure({ isAxiosError: true, message: "Network Error" })).rejects.toBeDefined();
     expect(useAuthStore.getState().status).toBe("authenticated");
   });
+
+  it("signs out once however many requests discover the same expiry", async () => {
+    // The app fires several queries at once on launch, so one stale token
+    // produced five separate 401s — five store clears, five cache wipes, and
+    // five warnings, which was enough to raise LogBox over the UI on every
+    // cold start.
+    queryClient.setQueryData(["tasks", "today"], [{ id: "task-1" }]);
+
+    await Promise.all([
+      expect(runFailure({ response: { status: 401 } })).rejects.toBeDefined(),
+      expect(runFailure({ response: { status: 401 } })).rejects.toBeDefined(),
+      expect(runFailure({ response: { status: 401 } })).rejects.toBeDefined(),
+    ]);
+
+    expect(useAuthStore.getState().status).toBe("unauthenticated");
+    expect(queryClient.getQueryData(["tasks", "today"])).toBeUndefined();
+
+    // Re-entering the cache after the sign-out must not be wiped again by a
+    // late 401 from a request that was already in flight.
+    queryClient.setQueryData(["tasks", "today"], [{ id: "task-2" }]);
+    await expect(runFailure({ response: { status: 401 } })).rejects.toBeDefined();
+    expect(queryClient.getQueryData(["tasks", "today"])).toEqual([{ id: "task-2" }]);
+  });
+
+  it("reports a later expiry again once the user has signed back in", async () => {
+    await expect(runFailure({ response: { status: 401 } })).rejects.toBeDefined();
+    expect(useAuthStore.getState().status).toBe("unauthenticated");
+
+    // Signing in is what re-arms it; nothing has to remember to reset a flag.
+    useAuthStore.setState({ status: "authenticated", user: null, authMessage: null });
+
+    await expect(runFailure({ response: { status: 401 } })).rejects.toBeDefined();
+    expect(useAuthStore.getState().status).toBe("unauthenticated");
+    expect(useAuthStore.getState().authMessage).toMatch(/session has expired/i);
+  });
 });
